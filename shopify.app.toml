@@ -1,0 +1,66 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "2fe88dc79f30fa71b826600094ec08c2"
+application_url = "https://REPLACE-ME.vercel.app"
+embedded = true
+name = "custom ring creator"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+# Keep byte-identical to the SCOPES env var, or install hits an OAuth re-grant loop.
+scopes = "read_files,read_products,read_publications,write_metaobject_definitions,write_metaobjects,write_products,write_publications"
+
+# Storefront selector calls the app through this proxy: /apps/diamond/* -> <app_url>/proxy/*
+# `subpath` must match the theme block's "App proxy subpath" setting (default: diamond).
+# `shopify app dev` overrides `url` with the tunnel for the dev session automatically.
+[app_proxy]
+url = "https://REPLACE-ME.vercel.app/proxy"
+subpath = "diamond"
+prefix = "apps"
+
+[product.metafields.app.demo_info]
+type = "single_line_text_field"
+name = "Demo Source Info"
+description = "Tracks products created by the Shopify app template for development"
+
+  [product.metafields.app.demo_info.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example]
+name = "Example"
+description = "An example metaobject definition created by this template"
+
+  [metaobjects.app.example.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example.fields.title]
+name = "Title"
+type = "single_line_text_field"
+required = true
+
+[metaobjects.app.example.fields.description]
+name = "Description"
+type = "multi_line_text_field"
+
+[webhooks]
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+[auth]
+redirect_urls = [
+  "https://REPLACE-ME.vercel.app/auth/callback",
+  "https://REPLACE-ME.vercel.app/auth/shopify/callback",
+  "https://REPLACE-ME.vercel.app/api/auth"
+]
+
+[build]
+include_config_on_deploy = true
+# Deliberately false: `shopify app dev` must not overwrite the production app URL.
+automatically_update_urls_on_dev = false
