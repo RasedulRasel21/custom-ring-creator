@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "2fe88dc79f30fa71b826600094ec08c2"
-application_url = "https://REPLACE-ME.vercel.app"
+application_url = "https://custom-ring-creator.vercel.app"
 embedded = true
 name = "custom ring creator"
 
@@ -14,7 +14,7 @@ scopes = "read_files,read_products,read_publications,write_metaobject_definition
 # `subpath` must match the theme block's "App proxy subpath" setting (default: diamond).
 # `shopify app dev` overrides `url` with the tunnel for the dev session automatically.
 [app_proxy]
-url = "https://REPLACE-ME.vercel.app/proxy"
+url = "https://custom-ring-creator.vercel.app/proxy"
 subpath = "diamond"
 prefix = "apps"
 
@@ -55,12 +55,11 @@ api_version = "2026-10"
 
 [auth]
 redirect_urls = [
-  "https://REPLACE-ME.vercel.app/auth/callback",
-  "https://REPLACE-ME.vercel.app/auth/shopify/callback",
-  "https://REPLACE-ME.vercel.app/api/auth"
+  "https://custom-ring-creator.vercel.app/auth/callback",
+  "https://custom-ring-creator.vercel.app/auth/shopify/callback",
+  "https://custom-ring-creator.vercel.app/api/auth"
 ]
 
 [build]
-include_config_on_deploy = true
 # Deliberately false: `shopify app dev` must not overwrite the production app URL.
 automatically_update_urls_on_dev = false

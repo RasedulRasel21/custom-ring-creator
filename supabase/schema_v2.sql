@@ -1,5 +1,5 @@
 -- ============================================================================
---  Avita Diamond Selector — migration v2
+--  Custom Ring Creator — migration v2
 --  Run this in Supabase → SQL Editor AFTER schema.sql.
 --  Adds: per-ring "enabled" toggle, and a shop-level settings store.
 -- ============================================================================

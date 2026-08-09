@@ -465,7 +465,7 @@ export async function mintProduct(shop, admin, productGid, q) {
           status: "ACTIVE",
           vendor: "Made to order",
           productType: "Diamond ring",
-          tags: ["avita-diamond-selector", "made-to-order", `ref:${ref}`, `combo:${q.key}`],
+          tags: ["custom-ring-creator", "made-to-order", `ref:${ref}`, `combo:${q.key}`],
         },
       },
     },

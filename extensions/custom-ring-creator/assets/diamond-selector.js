@@ -1,5 +1,5 @@
 
-/* Avita Diamond Selector — storefront cascade + add-to-cart.
+/* Custom Ring Creator — storefront cascade + add-to-cart.
    The browser only ever sends the SELECTION. Every price is computed by the
    app server from Supabase and returned; nothing here is authoritative. */
 (function () {
@@ -61,7 +61,7 @@
     var cartType = root.getAttribute("data-cart-type") || "drawer"; // theme native: drawer | page | notification
 
     // Global show/hide from the "Diamond Selector" app embed (theme settings).
-    var globalCfg = window.AvitaDiamondSelector;
+    var globalCfg = window.CustomRingCreator;
     if (globalCfg && globalCfg.show === false) { root.style.display = "none"; return; }
 
     var q = function (sel) { return root.querySelector(sel); };
@@ -101,12 +101,12 @@
     var presentBaseMinor = parseInt(root.getAttribute("data-base-price") || "0", 10);
     var moneyPat = el.base ? moneyParts(el.base.textContent) : null;
     // Debug: is Shopify exposing a currency object on this theme?
-    console.log("[avita-ds] Shopify.currency:", (window.Shopify && window.Shopify.currency) || "(none)");
+    console.log("[crc-ds] Shopify.currency:", (window.Shopify && window.Shopify.currency) || "(none)");
 
     // Cache of the REAL FX rate, learned from an actual cart line (see add-to-cart).
     // Keyed by the visitor's active currency so it survives reloads.
     var CUR = (window.Shopify && window.Shopify.currency && window.Shopify.currency.active) || "cur";
-    var RATE_KEY = "avita-fxrate:" + CUR;
+    var RATE_KEY = "crc-fxrate:" + CUR;
     function cachedRate() {
       try { var v = parseFloat(localStorage.getItem(RATE_KEY)); return isFinite(v) && v > 0 ? v : 0; } catch (e) { return 0; }
     }
@@ -212,7 +212,7 @@
     function showMsg(text, kind) {
       if (!el.msg) return;
       el.msg.textContent = text;
-      el.msg.className = "avita-ds__msg " + (kind === "ok" ? "is-ok" : "is-error");
+      el.msg.className = "crc-ds__msg " + (kind === "ok" ? "is-ok" : "is-error");
       el.msg.hidden = false;
     }
     function clearMsg() { if (el.msg) el.msg.hidden = true; }
@@ -223,10 +223,10 @@
       values.forEach(function (v) {
         var b = document.createElement("button");
         b.type = "button";
-        b.className = "avita-ds__chip";
+        b.className = "crc-ds__chip";
         b.textContent = labelFn ? labelFn(v) : v;
         b.addEventListener("click", function () {
-          Array.prototype.forEach.call(container.querySelectorAll(".avita-ds__chip"), function (c) {
+          Array.prototype.forEach.call(container.querySelectorAll(".crc-ds__chip"), function (c) {
             c.classList.remove("is-active");
           });
           b.classList.add("is-active");
@@ -270,11 +270,11 @@
     function refreshPrice() {
       var ready = state.origin && state.carat && state.colour && state.clarity;
       if (!ready) {
-        if (el.stone) el.stone.innerHTML = '<span class="avita-ds__pending">Pending selection</span>';
+        if (el.stone) el.stone.innerHTML = '<span class="crc-ds__pending">Pending selection</span>';
         if (el.facet) el.facet.textContent = "Select to preview specification";
         el.cta.disabled = true;
         el.cta.textContent = root.querySelector("[data-ds-cta]").getAttribute("data-default") || el.cta.textContent;
-        if (el.props) el.props.innerHTML = "<strong>Your specification</strong><br><span class='avita-ds__none'>Continue selecting above.</span>";
+        if (el.props) el.props.innerHTML = "<strong>Your specification</strong><br><span class='crc-ds__none'>Continue selecting above.</span>";
         return;
       }
       var url = proxyBase + "/price?productId=" + encodeURIComponent(productGid) +
@@ -287,7 +287,7 @@
       // need to wait for the live total to come back.
       el.cta.disabled = false;
       el.cta.textContent = "Add to cart";
-      if (el.stone) el.stone.innerHTML = '<span class="avita-ds__pending">Calculating…</span>';
+      if (el.stone) el.stone.innerHTML = '<span class="crc-ds__pending">Calculating…</span>';
       if (el.facet) el.facet.textContent = state.carat + "ct · " + state.colour + " · " + state.clarity +
         " · " + (state.origin === "natural" ? "Natural" : "Lab");
       if (el.props) el.props.innerHTML = "<strong>Your specification</strong><br>" +
@@ -364,7 +364,7 @@
     }
     function selectOrigin(o) {
       var label = o === "natural" ? "Natural" : "Lab Grown";
-      Array.prototype.forEach.call(el.origin.querySelectorAll(".avita-ds__chip"), function (ch) {
+      Array.prototype.forEach.call(el.origin.querySelectorAll(".crc-ds__chip"), function (ch) {
         if (ch.textContent === label) ch.click();
       });
     }
@@ -382,7 +382,7 @@
         if (!src) return;
         any = true;
         var t = document.createElement("div");
-        t.className = "avita-ds__thumb";
+        t.className = "crc-ds__thumb";
         t.setAttribute("data-thumb-carat", c);
         t.innerHTML = '<img src="' + src + '" alt="' + c + 'ct" loading="lazy"><span>' + parseFloat(c).toFixed(2) + "ct</span>";
         t.addEventListener("click", function () { onCaratThumb(c); });
@@ -397,7 +397,7 @@
       el.thumbs.style.display = "";
       imgs.forEach(function (m) {
         var t = document.createElement("div");
-        t.className = "avita-ds__thumb";
+        t.className = "crc-ds__thumb";
         t.setAttribute("data-thumb-src", m.src);
         t.innerHTML = '<img src="' + m.src + '" alt="' + (m.alt || "") + '" loading="lazy">';
         t.addEventListener("click", function () { setImage(m.src); });
@@ -407,7 +407,7 @@
     function renderThumbs(origin) {
       if (!el.thumbs) return; // compact block has no gallery — nothing to build
       if (thumbSource === "product") renderProductThumbs(); else renderCaratThumbs(origin);
-      console.log("[avita-ds] renderThumbs", { mode: thumbSource, origin: origin,
+      console.log("[crc-ds] renderThumbs", { mode: thumbSource, origin: origin,
         mappedCarats: Object.keys(serverImages).length, thumbsBuilt: el.thumbs.children.length,
         display: el.thumbs.style.display });
       updateThumbActive();
@@ -415,7 +415,7 @@
     function updateThumbActive() {
       if (!el.thumbs) return;
       var mainSrc = el.image ? el.image.getAttribute("src") : null;
-      Array.prototype.forEach.call(el.thumbs.querySelectorAll(".avita-ds__thumb"), function (t) {
+      Array.prototype.forEach.call(el.thumbs.querySelectorAll(".crc-ds__thumb"), function (t) {
         var active = thumbSource === "product"
           ? t.getAttribute("data-thumb-src") === mainSrc
           : t.getAttribute("data-thumb-carat") === state.carat;
@@ -486,7 +486,7 @@
     // Remember each minted line's image so we can repaint EVERY one of our lines
     // whenever the drawer re-renders (a new add re-renders the whole drawer and
     // would otherwise wipe earlier lines). sessionStorage survives reloads.
-    var LINE_IMG_KEY = "avita-line-imgs";
+    var LINE_IMG_KEY = "crc-line-imgs";
     function readLineImgs() {
       try { return JSON.parse(sessionStorage.getItem(LINE_IMG_KEY) || "{}") || {}; } catch (e) { return {}; }
     }
@@ -588,7 +588,7 @@
             if (presCents && addedTotalGBP > 0) {
               var learned = presCents / 100 / addedTotalGBP;
               cacheRate(learned);
-              console.log("[avita-ds] learned FX rate:", learned, "→ cached for", CUR);
+              console.log("[crc-ds] learned FX rate:", learned, "→ cached for", CUR);
             }
           } catch (e) { /* ignore */ }
 
@@ -619,7 +619,7 @@
           if (data.enabled === false) { root.style.display = "none"; return; }
           combos = data.combos || { natural: [], lab: [] };
           serverImages = data.images || {};
-          console.log("[avita-ds] options loaded:", {
+          console.log("[crc-ds] options loaded:", {
             enabled: data.enabled,
             naturalRows: (combos.natural || []).length,
             labRows: (combos.lab || []).length,
@@ -695,9 +695,9 @@
   }
 
   function initAll() {
-    Array.prototype.forEach.call(document.querySelectorAll("[data-avita-ds]"), function (root) {
-      if (root.__avitaInit) return;
-      root.__avitaInit = true;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-crc-ds]"), function (root) {
+      if (root.__crcInit) return;
+      root.__crcInit = true;
       initRoot(root);
     });
   }

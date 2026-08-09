@@ -1,0 +1,115 @@
+{%- if product.tags contains 'custom-ring-creator' -%}
+{{ 'diamond-selector.css' | asset_url | stylesheet_tag }}
+
+{%- assign proxy_base = '/apps/' | append: block.settings.proxy_subpath -%}
+{%- assign sg_page = pages[block.settings.size_guide_page] -%}
+{%- assign sg_label = block.settings.size_guide_label | default: 'Size Guide' -%}
+{%- assign sg_enabled = false -%}
+{%- if block.settings.size_guide_page != blank and sg_page != empty -%}{%- assign sg_enabled = true -%}{%- endif -%}
+
+<div
+  class="crc-ds crc-ds--compact is-loading"
+  data-crc-ds
+  data-product-id="{{ product.id }}"
+  data-product-gid="gid://shopify/Product/{{ product.id }}"
+  data-shape="{{ block.settings.shape | default: 'emerald' | downcase }}"
+  data-cart-type="{{ settings.cart_type | default: 'drawer' }}"
+  data-proxy-base="{{ proxy_base }}"
+  data-base-price="{{ product.price }}"
+  data-base-label="{{ block.settings.base_label | default: product.title | escape }}"
+  data-moneyformat="{{ shop.money_format | escape }}"
+  data-featured-image="{% if product.featured_image %}{{ product.featured_image | image_url: width: 900 }}{% endif %}"
+  {{ block.shopify_attributes }}
+>
+  <div class="crc-ds__stage">
+    <div class="crc-ds__loader" data-ds-loader aria-hidden="true"><span class="crc-ds__spinner"></span></div>
+
+    <div class="crc-ds__selector">
+      <div class="crc-ds__step" data-ds-step="origin">
+        <div class="crc-ds__step-label"><span class="crc-ds__name">Diamond</span>
+          <span class="crc-ds__hint" data-ds-hint-origin>Choose an origin</span></div>
+        <div class="crc-ds__chips" data-ds-origin></div>
+      </div>
+
+      <div class="crc-ds__step is-locked" data-ds-step="carat">
+        <div class="crc-ds__step-label"><span class="crc-ds__name">Carat</span>
+          <span class="crc-ds__hint">Weight</span></div>
+        <select class="crc-ds__select" data-ds-carat><option value="">Select carat weight</option></select>
+      </div>
+
+      <div class="crc-ds__step is-locked" data-ds-step="colour">
+        <div class="crc-ds__step-label"><span class="crc-ds__name">Colour</span>
+          <span class="crc-ds__hint">D is finest</span></div>
+        <div class="crc-ds__chips" data-ds-colour></div>
+      </div>
+
+      <div class="crc-ds__step is-locked" data-ds-step="clarity">
+        <div class="crc-ds__step-label"><span class="crc-ds__name">Clarity</span>
+          <span class="crc-ds__hint">VVS1 is finest</span></div>
+        <div class="crc-ds__chips" data-ds-clarity></div>
+      </div>
+
+      <div class="crc-ds__step is-locked" data-ds-step="size">
+        <div class="crc-ds__step-label"><span class="crc-ds__name">Ring size</span>
+          <span class="crc-ds__hint">UK</span>
+          {%- if sg_enabled -%}
+            {%- if block.settings.size_guide_mode == 'modal' -%}
+              <a class="crc-ds__sizeguide" href="{{ sg_page.url }}" target="_blank" rel="noopener" data-ds-sizeguide>{{ sg_label | escape }}</a>
+            {%- else -%}
+              <a class="crc-ds__sizeguide" href="{{ sg_page.url }}" target="_blank" rel="noopener">{{ sg_label | escape }}</a>
+            {%- endif -%}
+          {%- endif -%}
+        </div>
+        <select class="crc-ds__select" data-ds-size></select>
+      </div>
+
+      <div class="crc-ds__summary">
+        <div class="crc-ds__price-line"><span data-ds-base-label>{{ block.settings.base_label | default: product.title | escape }}</span><span class="crc-ds__v" data-ds-base>{{ product.price | money }}</span></div>
+        <div class="crc-ds__price-line"><span>Selected diamond</span><span class="crc-ds__v" data-ds-stone><span class="crc-ds__pending">Pending selection</span></span></div>
+        <div class="crc-ds__price-line crc-ds__total"><span class="crc-ds__k">Total</span><span class="crc-ds__v" data-ds-total>{{ product.price | money }}</span></div>
+        <button class="crc-ds__cta" data-ds-cta disabled>{{ block.settings.cta_text | escape }}</button>
+        <div class="crc-ds__msg" data-ds-msg hidden></div>
+      </div>
+    </div>
+  </div>
+
+  {%- if sg_enabled and block.settings.size_guide_mode == 'modal' -%}
+    <div class="crc-ds__sg-modal" data-ds-sg-modal hidden>
+      <div class="crc-ds__sg-backdrop" data-ds-sg-close></div>
+      <div class="crc-ds__sg-panel" role="dialog" aria-modal="true" aria-label="{{ sg_label | escape }}">
+        <button type="button" class="crc-ds__sg-close" data-ds-sg-close aria-label="Close">&times;</button>
+        <div class="crc-ds__sg-title">{{ sg_page.title | default: sg_label | escape }}</div>
+        <div class="crc-ds__sg-body rte">{{ sg_page.content }}</div>
+      </div>
+    </div>
+  {%- endif -%}
+</div>
+
+<script src="{{ 'diamond-selector.js' | asset_url }}" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Diamond Selector",
+  "target": "section",
+  "settings": [
+    { "type": "text", "id": "shape", "label": "Diamond shape (matches your CSV)", "default": "emerald" },
+    { "type": "text", "id": "base_label", "label": "Base price row label (blank = product title)", "default": "Ring Price" },
+    { "type": "text", "id": "cta_text", "label": "Button text", "default": "Add to cart" },
+    { "type": "text", "id": "proxy_subpath", "label": "App proxy subpath", "default": "diamond", "info": "Must match the app proxy subpath configured in the app (default: diamond)." },
+    { "type": "header", "content": "Size guide" },
+    { "type": "page", "id": "size_guide_page", "label": "Size guide page", "info": "Choose a page to show as the ring-size size guide. Leave blank to hide the link." },
+    { "type": "text", "id": "size_guide_label", "label": "Size guide link text", "default": "Size Guide" },
+    {
+      "type": "select",
+      "id": "size_guide_mode",
+      "label": "How to open the size guide",
+      "default": "new_tab",
+      "options": [
+        { "value": "new_tab", "label": "Open the page in a new tab" },
+        { "value": "modal", "label": "Open as a popup (modal) on the same page" }
+      ]
+    }
+  ]
+}
+{% endschema %}

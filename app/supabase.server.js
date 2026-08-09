@@ -23,7 +23,7 @@ export function getSupabase() {
   if (_client) return _client;
   _client = createClient(supabaseUrl ?? "", supabaseSecret ?? "", {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { "x-application-name": "avita-diamond-selector" } },
+    global: { headers: { "x-application-name": "custom-ring-creator" } },
   });
   return _client;
 }

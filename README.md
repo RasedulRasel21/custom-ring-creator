@@ -235,4 +235,4 @@ Shopify:
 Internationalization:
 
 - [Internationalizing your app](https://shopify.dev/docs/apps/best-practices/internationalization/getting-started)
-# avita-jewellery-custom-app
+# custom-ring-creator

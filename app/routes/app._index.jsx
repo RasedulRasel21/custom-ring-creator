@@ -117,6 +117,9 @@ export const action = async ({ request }) => {
 
   const rows = [], errors = [], seen = new Set(), origins = new Set();
   let min = Infinity, max = -Infinity;
+  // One timestamp for the whole upload, so the prune below can tell this batch
+  // apart from rows left over by the previous price sheet.
+  const stamp = new Date().toISOString();
   records.forEach((rec, i) => {
     const line = i + 2;
     const shape = String(rec.shape || "").trim().toLowerCase();
@@ -134,18 +137,24 @@ export const action = async ({ request }) => {
     seen.add(key);
     if (e.length) { errors.push(`Line ${line}: ${e.join("; ")}`); return; }
     origins.add(origin); min = Math.min(min, pence); max = Math.max(max, pence);
-    rows.push({ shop: session.shop, shape, origin, carat, colour, clarity, price_pence: pence, image_url: String(rec.image_url || "").trim() || null, updated_at: new Date().toISOString() });
+    rows.push({ shop: session.shop, shape, origin, carat, colour, clarity, price_pence: pence, image_url: String(rec.image_url || "").trim() || null, updated_at: stamp });
   });
   if (errors.length) return { ok: false, message: `${errors.length} row(s) rejected — nothing saved.`, errors: errors.slice(0, 25) };
   try {
+    // Write first, prune second. Supabase gives us no transaction across these
+    // calls, so ordering is the only safety we get: if a batch fails partway the
+    // shape still holds a complete (if stale) price set, rather than being wiped
+    // by a delete whose follow-up insert never landed.
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await supabase.from("diamond_prices").upsert(rows.slice(i, i + 500), { onConflict: "shop,shape,origin,carat,colour,clarity" });
+      if (error) throw new Error(error.message);
+    }
+    // Everything this sheet didn't touch is a combination the merchant removed.
     const pairs = [...new Set(rows.map((r) => `${r.shape}|${r.origin}`))];
     for (const pair of pairs) {
       const [shp, org] = pair.split("|");
-      const { error } = await supabase.from("diamond_prices").delete().eq("shop", session.shop).eq("shape", shp).eq("origin", org);
-      if (error) throw new Error(error.message);
-    }
-    for (let i = 0; i < rows.length; i += 500) {
-      const { error } = await supabase.from("diamond_prices").upsert(rows.slice(i, i + 500), { onConflict: "shop,shape,origin,carat,colour,clarity" });
+      const { error } = await supabase.from("diamond_prices").delete()
+        .eq("shop", session.shop).eq("shape", shp).eq("origin", org).lt("updated_at", stamp);
       if (error) throw new Error(error.message);
     }
   } catch (err) { return { ok: false, message: `Save failed: ${err.message}` }; }

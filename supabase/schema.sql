@@ -1,5 +1,5 @@
 -- ============================================================================
---  Avita Diamond Selector — Supabase schema
+--  Custom Ring Creator — Supabase schema
 --  Run this in Supabase → SQL Editor once, against your project.
 --  All money is stored as INTEGER PENCE (e.g. £1,200.00 -> 120000) to avoid
 --  floating-point rounding on high-value orders (natural stones reach £101,500).

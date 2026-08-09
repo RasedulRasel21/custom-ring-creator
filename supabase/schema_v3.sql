@@ -1,5 +1,5 @@
 -- ============================================================================
---  Avita Diamond Selector — migration v3  (per-carat images)
+--  Custom Ring Creator — migration v3  (per-carat images)
 --  Run in Supabase → SQL Editor AFTER schema.sql and schema_v2.sql.
 --  Idempotent and additive — does not touch existing data.
 -- ============================================================================

@@ -1,5 +1,5 @@
 {
-  "name": "avita-diamond-selector",
+  "name": "custom-ring-creator",
   "private": true,
   "scripts": {
     "build": "react-router build",

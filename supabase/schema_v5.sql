@@ -15,3 +15,7 @@ create table if not exists minted_products (
 
 create index if not exists minted_products_shop_created_idx
   on minted_products (shop, created_at);
+
+-- Match the other tables: RLS on with no policies. The app connects with the
+-- service_role key, which bypasses RLS; this only shuts out anon/authenticated.
+alter table public.minted_products enable row level security;

@@ -19,7 +19,7 @@ Don't also run the individual files.
 
 ### 2. Push to GitHub
 ```bash
-git init && git add -A && git commit -m "Avita diamond selector"
+git init && git add -A && git commit -m "Custom Ring Creator diamond selector"
 git branch -M main
 git remote add origin <your-github-repo-url>
 git push -u origin main
@@ -61,7 +61,7 @@ If it doesn't prompt, uninstall + reopen the app to force a fresh grant.
 - **Stop `shopify app dev`.**
 - Open a ring product on the storefront and hard-refresh.
 - The selector should load prices and add to cart — all served by Vercel now, no local
-  process running. (Check the browser console `[avita-ds]` logs if anything is off.)
+  process running. (Check the browser console `[crc-ds]` logs if anything is off.)
 
 ## Notes
 - **Cold starts:** the first request after idle adds ~0.3–1s. Fine for one store.

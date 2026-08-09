@@ -1,4 +1,4 @@
-# Avita Diamond Selector
+# Custom Ring Creator
 
 Custom Shopify app: a cascading emerald-cut diamond selector (Natural/Lab → carat → colour →
 clarity → ring size) with a live total of **ring base + selected stone**, driven by a CSV you

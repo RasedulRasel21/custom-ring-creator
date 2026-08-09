@@ -1,5 +1,5 @@
 -- ============================================================
--- Avita Diamond Selector — FULL setup (run once in a NEW project)
+-- Custom Ring Creator — FULL setup (run once in a NEW project)
 -- Combines schema.sql + v2 + v3 + v4 + v5 in the correct order.
 -- Supabase → SQL Editor → paste all → Run.
 -- ============================================================
@@ -7,7 +7,7 @@
 
 -- >>>>>>>>>>>>>>>>>>>>  schema.sql  <<<<<<<<<<<<<<<<<<<<
 -- ============================================================================
---  Avita Diamond Selector — Supabase schema
+--  Custom Ring Creator — Supabase schema
 --  Run this in Supabase → SQL Editor once, against your project.
 --  All money is stored as INTEGER PENCE (e.g. £1,200.00 -> 120000) to avoid
 --  floating-point rounding on high-value orders (natural stones reach £101,500).
@@ -85,7 +85,7 @@ alter table public.dynamic_variants enable row level security;
 
 -- >>>>>>>>>>>>>>>>>>>>  schema_v2.sql  <<<<<<<<<<<<<<<<<<<<
 -- ============================================================================
---  Avita Diamond Selector — migration v2
+--  Custom Ring Creator — migration v2
 --  Run this in Supabase → SQL Editor AFTER schema.sql.
 --  Adds: per-ring "enabled" toggle, and a shop-level settings store.
 -- ============================================================================
@@ -106,7 +106,7 @@ alter table public.shop_settings enable row level security;
 
 -- >>>>>>>>>>>>>>>>>>>>  schema_v3.sql  <<<<<<<<<<<<<<<<<<<<
 -- ============================================================================
---  Avita Diamond Selector — migration v3  (per-carat images)
+--  Custom Ring Creator — migration v3  (per-carat images)
 --  Run in Supabase → SQL Editor AFTER schema.sql and schema_v2.sql.
 --  Idempotent and additive — does not touch existing data.
 -- ============================================================================
@@ -134,7 +134,7 @@ alter table public.carat_images enable row level security;
 
 -- >>>>>>>>>>>>>>>>>>>>  schema_v4.sql  <<<<<<<<<<<<<<<<<<<<
 -- ============================================================================
---  Avita Diamond Selector — migration v4  (Shopify session storage)
+--  Custom Ring Creator — migration v4  (Shopify session storage)
 --  Run in Supabase → SQL Editor. Needed when hosting on Vercel/serverless,
 --  where the local SQLite session store does not persist.
 -- ============================================================================
@@ -170,4 +170,8 @@ create table if not exists minted_products (
 
 create index if not exists minted_products_shop_created_idx
   on minted_products (shop, created_at);
+
+-- Match the other tables: RLS on with no policies. The app connects with the
+-- service_role key, which bypasses RLS; this only shuts out anon/authenticated.
+alter table public.minted_products enable row level security;
 

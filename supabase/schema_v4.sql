@@ -1,5 +1,5 @@
 -- ============================================================================
---  Avita Diamond Selector — migration v4  (Shopify session storage)
+--  Custom Ring Creator — migration v4  (Shopify session storage)
 --  Run in Supabase → SQL Editor. Needed when hosting on Vercel/serverless,
 --  where the local SQLite session store does not persist.
 -- ============================================================================
