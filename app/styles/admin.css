@@ -12,10 +12,16 @@
   --serif:Georgia,'Times New Roman',serif;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
   color:var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased;
-  /* Capped AND centred. Without the auto margins the column hugged the left
-     edge on wide screens, which is what made every page look off-centre. */
-  max-width:940px; margin-inline:auto;
+  /* Capped AND centred. `margin-inline:auto` alone was not enough: auto margins
+     can only centre when the containing box is wider than the column, and App
+     Bridge renders the page into a shrink-to-fit box, so there was no free
+     space to absorb and the column sat flush left at any window width.
+     Stretching the column and its wrapper to full width first gives max-width
+     something to cap and the margins something to centre within. */
+  width:100%; max-width:940px; margin-inline:auto;
 }
+/* Whatever element App Bridge puts our div in — we do not control its markup. */
+:where(body *):has(> .ds-admin){width:100%;display:block}
 /* The Appearance page needs room for its side-by-side preview. */
 .ds-admin:has(.ap-wide){max-width:1320px}
 .ds-admin *{box-sizing:border-box}
