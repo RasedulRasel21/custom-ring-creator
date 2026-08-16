@@ -350,6 +350,7 @@
           });
           var slide = pillCfg.slider && items.length > pillCfg.after;
           chips.classList.toggle("is-slider", slide);
+          wrap.classList.toggle("is-sliding", slide); // opens the arrow gutters
           ensureArrows(slide);
         }
         if (dropdown) ensureArrows(false); // no arrows to leave behind
@@ -569,7 +570,8 @@
       colour: makeField("colour", { onChange: pickColour }),
       clarity: makeField("clarity", { onChange: pickClarity }),
       size: makeField("size", {
-        label: function (s) { return "Size " + s; },
+        // No "Size " prefix — the step is already labelled "Ring size", and the
+        // repetition was eating the width of every pill.
         onChange: function (s) { state.size = s; refreshPrice(); },
       }),
     };

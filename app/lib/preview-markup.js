@@ -33,7 +33,6 @@ const ORIGIN_LABEL = { natural: "Natural", lab: "Lab Grown" };
 function labelFor(step, value) {
   if (step === "origin") return ORIGIN_LABEL[value] || value;
   if (step === "carat") return `${parseFloat(value).toFixed(2)} ct`;
-  if (step === "size") return `Size ${value}`;
   return value;
 }
 
@@ -66,7 +65,7 @@ function control(appearance, step, values, selected) {
        <button type="button" class="crc-ds__arrow crc-ds__arrow--next">&#8250;</button>`
     : "";
 
-  return `<div class="crc-ds__control" data-ds-control="${step}">
+  return `<div class="crc-ds__control${slide ? " is-sliding" : ""}" data-ds-control="${step}">
     <div class="crc-ds__chips${slide ? " is-slider" : ""}" data-ds-chips>${chips}</div>
     ${arrows}
   </div>`;

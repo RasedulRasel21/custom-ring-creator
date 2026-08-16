@@ -554,9 +554,13 @@
   scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* Room for the arrows to overlay without covering the first/last pill. */
-  padding: 2px 30px;
-  margin: 0 -30px;
+  padding: 2px 0;
+}
+/* Arrows live in gutters either side of the scroller rather than floating over
+   it. Padding the scroller instead (with a matching negative margin) put the
+   first pill straight back under the arrow. */
+.crc-ds__control.is-sliding {
+  padding: 0 34px;
 }
 .crc-ds__chips.is-slider::-webkit-scrollbar {
   display: none;
