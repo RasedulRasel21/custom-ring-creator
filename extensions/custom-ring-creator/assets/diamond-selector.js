@@ -159,6 +159,32 @@
     // Compact block has no image panel of its own — swap the THEME's main product
     // image instead (best-effort; selectors vary by theme). Set both src and
     // srcset so the browser doesn't keep showing the responsive original.
+    // Two copies of the same photo compare equal even at different widths: the
+    // gallery renders it at one size and the zoom modal at another, so the
+    // responsive width/size params have to be ignored to match them up.
+    function imageKey(src) {
+      if (!src) return null;
+      try {
+        var u = new URL(src, window.location.href);
+        var v = u.searchParams.get("v");
+        return u.pathname + (v ? "?v=" + v : "");
+      } catch (e) {
+        return String(src).split("?")[0];
+      }
+    }
+
+    function patchImg(el, url) {
+      // Drop the responsive srcset/sizes so the browser shows exactly our URL.
+      el.removeAttribute("srcset");
+      el.removeAttribute("sizes");
+      el.removeAttribute("data-srcset");
+      el.setAttribute("src", url);
+      // Themes that keep the zoom target on the element itself rather than in a modal.
+      ["data-zoom-src", "data-large-src", "data-full-src", "data-image"].forEach(function (a) {
+        if (el.hasAttribute(a)) el.setAttribute(a, url);
+      });
+    }
+
     function swapThemeMedia(url) {
       if (!url) return;
       var sels = [
@@ -170,11 +196,24 @@
       var img = null;
       for (var i = 0; i < sels.length && !img; i++) img = document.querySelector(sels[i]);
       if (!img) return;
-      // Drop the responsive srcset/sizes so the browser shows exactly our URL.
-      img.removeAttribute("srcset");
-      img.removeAttribute("sizes");
-      img.removeAttribute("data-srcset");
-      img.setAttribute("src", url);
+
+      // Capture what it was showing BEFORE the swap. The magnifier opens a
+      // separate modal holding its own copy of the same media, and matching on
+      // the old URL is the only reliable way to find that copy across themes —
+      // patching just the gallery left the zoom showing the original photo.
+      var key = imageKey(img.getAttribute("src"));
+      patchImg(img, url);
+
+      if (key) {
+        Array.prototype.forEach.call(document.querySelectorAll("img"), function (other) {
+          if (other !== img && imageKey(other.getAttribute("src")) === key) patchImg(other, url);
+        });
+        // Themes that lightbox by linking straight to the full-size file.
+        Array.prototype.forEach.call(document.querySelectorAll("a[href]"), function (a) {
+          if (imageKey(a.getAttribute("href")) === key) a.setAttribute("href", url);
+        });
+      }
+
       // If it's a scroll carousel, snap back to the (now-swapped) first slide.
       var car = document.querySelector(".product-gallery__carousel, scroll-carousel, .product-gallery__image-list .scroll-area");
       if (car) { try { car.scrollTo({ left: 0, behavior: "smooth" }); } catch (e) { car.scrollLeft = 0; } }
