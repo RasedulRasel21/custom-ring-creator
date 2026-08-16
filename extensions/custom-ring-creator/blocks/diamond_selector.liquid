@@ -1,4 +1,19 @@
-{%- if product.tags contains 'custom-ring-creator' -%}
+{%- comment -%}
+  The block used to be hard-gated to products tagged "custom-ring-creator",
+  which silently rendered nothing everywhere else. Adding the block in the theme
+  editor is the opt-in now, so it shows wherever it is placed. The tag filter
+  survives as an optional setting: if the block sits on a shared product
+  template, that is the way to scope it back to real rings.
+{%- endcomment -%}
+{%- assign gate_tag = block.settings.require_tag | strip -%}
+{%- assign show_block = true -%}
+{%- if gate_tag != blank -%}
+  {%- unless product.tags contains gate_tag -%}
+    {%- assign show_block = false -%}
+  {%- endunless -%}
+{%- endif -%}
+
+{%- if show_block -%}
 {{ 'diamond-selector.css' | asset_url | stylesheet_tag }}
 
 {%- assign proxy_base = '/apps/' | append: block.settings.proxy_subpath -%}
@@ -119,6 +134,7 @@
     { "type": "text", "id": "base_label", "label": "Base price row label (blank = product title)", "default": "Ring Price" },
     { "type": "text", "id": "cta_text", "label": "Button text", "default": "Add to cart" },
     { "type": "text", "id": "proxy_subpath", "label": "App proxy subpath", "default": "diamond", "info": "Must match the app proxy subpath configured in the app (default: diamond)." },
+    { "type": "text", "id": "require_tag", "label": "Only show on products with this tag", "default": "", "info": "Leave blank to show wherever this block is added. Set a tag (e.g. custom-ring-creator) to scope it — useful if the block sits on a template shared by non-ring products." },
     { "type": "header", "content": "Size guide" },
     { "type": "page", "id": "size_guide_page", "label": "Size guide page", "info": "Choose a page to show as the ring-size size guide. Leave blank to hide the link." },
     { "type": "text", "id": "size_guide_label", "label": "Size guide link text", "default": "Size Guide" },
