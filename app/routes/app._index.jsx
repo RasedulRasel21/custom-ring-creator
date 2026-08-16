@@ -1,323 +1,189 @@
-import { useEffect, useRef, useState } from "react";
-import { Form, useFetcher, useLoaderData, useSearchParams } from "react-router";
-import { boundary } from "@shopify/shopify-app-react-router/server";
-import { parse } from "csv-parse/sync";
+import { Link, useLoaderData } from "react-router";
 import { authenticate } from "../shopify.server";
 import { getSupabase } from "../supabase.server";
-import {
-  poundsToPence, formatGBP,
-  normOrigin, normCarat, normColour, normClarity,
-} from "../lib/money";
 
-const EXPECTED = ["shape", "origin", "carat", "colour", "clarity", "price"];
-const PAGE_SIZE = 20;
+// Deep links into the theme editor. A one-click "add this block" link needs the
+// theme app extension's UUID, which no Admin API query exposes — so it is read
+// from an env var when available (see .env.example) and we fall back to opening
+// the product template, where the merchant adds the block by hand.
+const BLOCK_HANDLE = "diamond_selector";
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const supabase = getSupabase();
-  const url = new URL(request.url);
-  const page = Math.max(1, Number(url.searchParams.get("page") || 1));
-  const shapeFilter = url.searchParams.get("shape") || "";
-  const from = (page - 1) * PAGE_SIZE;
+  const shop = session.shop;
+  // Read inside the loader, not at module scope: a top-level process.env would
+  // only be stripped from the browser bundle if tree-shaking happened to prove
+  // it unused, and `process is not defined` there kills hydration silently.
+  // eslint-disable-next-line no-undef
+  const themeExtensionId = process.env.SHOPIFY_THEME_EXTENSION_ID || "";
 
-  let query = supabase
-    .from("diamond_prices")
-    .select("id, shape, origin, carat, colour, clarity, price_pence", { count: "exact" })
-    .eq("shop", session.shop);
-  if (shapeFilter) query = query.eq("shape", shapeFilter);
-  const { data, count } = await query
-    .order("shape").order("origin").order("carat").order("colour").order("clarity")
-    .range(from, from + PAGE_SIZE - 1);
+  const [prices, pages, images, settingsRow] = await Promise.all([
+    supabase.from("diamond_prices").select("shape").eq("shop", shop),
+    supabase.from("ring_pages").select("product_id, base_price_pence").eq("shop", shop),
+    supabase.from("carat_images").select("carat").eq("shop", shop),
+    supabase.from("shop_settings").select("settings").eq("shop", shop).maybeSingle(),
+  ]);
 
-  const rows = (data || []).map((r) => ({
-    id: r.id, shape: r.shape, origin: r.origin, carat: r.carat, colour: r.colour, clarity: r.clarity,
-    pounds: (Number(r.price_pence) / 100).toString(),
-  }));
-
-  // Distinct values for the combobox suggestions ("show current, allow new").
-  const { data: vals } = await supabase
-    .from("diamond_prices").select("shape, colour, clarity").eq("shop", session.shop).limit(5000);
-  const uniq = (k) => [...new Set((vals || []).map((v) => v[k]))].filter(Boolean).sort();
+  const priceRows = prices.data || [];
+  const raw = settingsRow.data?.settings || {};
 
   return {
-    rows, total: count || 0, page, shapeFilter,
-    suggest: { shapes: uniq("shape"), colours: uniq("colour"), clarities: uniq("clarity") },
+    shop,
+    themeExtensionId,
+    stats: {
+      priceRows: priceRows.length,
+      shapes: [...new Set(priceRows.map((r) => r.shape).filter(Boolean))],
+      basePriced: (pages.data || []).filter((p) => p.base_price_pence != null).length,
+      caratImages: (images.data || []).length,
+      // Only counts as configured if the merchant actually saved a list —
+      // every shop has a working default, so presence is the real signal.
+      sizeCount: Array.isArray(raw.ringSizes) ? raw.ringSizes.length : 0,
+      styled: !!raw.appearance && Object.keys(raw.appearance).length > 0,
+    },
   };
 };
 
-export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
-  const supabase = getSupabase();
-  const fd = await request.formData();
-  const intent = fd.get("intent");
+/* eslint-disable react/prop-types -- local presentational helper, not exported */
+function Step({ n, done, optional, title, children, meta, action }) {
+  return (
+    <li className={"wl-step" + (done ? " is-done" : "")}>
+      <span className="wl-num" aria-hidden="true">{done ? "✓" : n}</span>
+      <div className="wl-body">
+        <div className="wl-title">
+          <b>{title}</b>
+          {optional && <span className="wl-tag">Optional</span>}
+          {done && <span className="wl-tag is-done">Done</span>}
+        </div>
+        <p>{children}</p>
+        {meta && <p className="wl-meta">{meta}</p>}
+      </div>
+      <div className="wl-action">{action}</div>
+    </li>
+  );
+}
+/* eslint-enable react/prop-types */
 
-  if (intent === "delete") {
-    await supabase.from("diamond_prices").delete().eq("shop", session.shop).eq("id", fd.get("id"));
-    return { result: { ok: true, message: "Row deleted." } };
-  }
+export default function Welcome() {
+  const { shop, themeExtensionId, stats } = useLoaderData();
 
-  if (intent === "update") {
-    const pence = poundsToPence(fd.get("price"));
-    if (pence == null || pence < 0) return { result: { ok: false, message: "Invalid price." } };
-    await supabase.from("diamond_prices")
-      .update({ price_pence: pence, updated_at: new Date().toISOString() })
-      .eq("shop", session.shop).eq("id", fd.get("id"));
-    return { result: { ok: true, message: "Price updated." } };
-  }
+  const editor = `https://${shop}/admin/themes/current/editor`;
+  // With the UUID we can drop the block straight into the product template;
+  // without it, the merchant lands on the right template and adds it manually.
+  const addBlockUrl = themeExtensionId
+    ? `${editor}?template=product&addAppBlockId=${themeExtensionId}/${BLOCK_HANDLE}&target=mainSection`
+    : `${editor}?template=product`;
+  const embedUrl = `${editor}?context=apps`;
 
-  if (intent === "add") {
-    const shape = String(fd.get("shape") || "").trim().toLowerCase();
-    const origin = normOrigin(fd.get("origin"));
-    const carat = normCarat(fd.get("carat"));
-    const colour = normColour(fd.get("colour"));
-    const clarity = normClarity(fd.get("clarity"));
-    const pence = poundsToPence(fd.get("price"));
-    if (!shape || !origin || !carat || !colour || !clarity || pence == null || pence < 0) {
-      return { result: { ok: false, message: "Fill every field with a valid value (origin natural/lab, price in £)." } };
-    }
-    const { error } = await supabase.from("diamond_prices").upsert(
-      { shop: session.shop, shape, origin, carat, colour, clarity, price_pence: pence, updated_at: new Date().toISOString() },
-      { onConflict: "shop,shape,origin,carat,colour,clarity" },
-    );
-    if (error) return { result: { ok: false, message: error.message } };
-    return { result: { ok: true, message: `Saved ${shape} · ${origin} · ${carat}ct · ${colour} · ${clarity}.` } };
-  }
+  const steps = [
+    {
+      key: "block",
+      title: "Add the selector to your ring pages",
+      done: false,
+      body: themeExtensionId
+        ? "Opens your product template with the Diamond Selector block ready to place."
+        : "Opens your product template. Choose Add block → Apps → Diamond Selector, then Save.",
+      meta: "The app can't detect this automatically — open a ring page to confirm the selector appears.",
+      action: <a className="btn" href={addBlockUrl} target="_top" rel="noreferrer">Open theme editor</a>,
+    },
+    {
+      key: "prices",
+      title: "Load your diamond prices",
+      done: stats.priceRows > 0,
+      body: "Upload a monthly CSV, or add stones by hand. A shape goes live as soon as it has prices — nothing to rebuild.",
+      meta: stats.priceRows
+        ? `${stats.priceRows} price rows across ${stats.shapes.length} shape${stats.shapes.length === 1 ? "" : "s"}: ${stats.shapes.join(", ")}`
+        : "No prices yet — the selector will show “No diamond prices are loaded yet.”",
+      action: <Link className="btn ghost" to="/app/prices">Price data</Link>,
+    },
+    {
+      key: "rings",
+      title: "Set the ring base prices",
+      done: stats.basePriced > 0,
+      body: "The shopper pays the ring base plus the chosen stone. Without a base price the product's own Shopify price is used.",
+      meta: stats.basePriced
+        ? `${stats.basePriced} ring page${stats.basePriced === 1 ? "" : "s"} with a base price set`
+        : "Falling back to each product's Shopify price.",
+      action: <Link className="btn ghost" to="/app/rings">Ring base prices</Link>,
+    },
+    {
+      key: "sizes",
+      title: "Choose the ring sizes you offer",
+      done: stats.sizeCount > 0,
+      body: "Add, rename, reorder or delete sizes, or start from a UK, US or EU preset.",
+      meta: stats.sizeCount
+        ? `${stats.sizeCount} sizes configured`
+        : "Using the built-in UK list (H–Q with half sizes).",
+      action: <Link className="btn ghost" to="/app/settings">Selector settings</Link>,
+    },
+    {
+      key: "style",
+      title: "Match the selector to your brand",
+      done: stats.styled,
+      body: "Pills or dropdowns, colours, layout and custom CSS — with a live preview of your own stones.",
+      meta: stats.styled ? "Custom appearance saved." : "Using the default appearance.",
+      action: <Link className="btn ghost" to="/app/appearance">Appearance</Link>,
+    },
+    {
+      key: "images",
+      title: "Show a photo per carat",
+      done: stats.caratImages > 0,
+      optional: true,
+      body: "The product image swaps as the shopper changes carat. Any carat left blank falls back to the product photo.",
+      meta: stats.caratImages ? `${stats.caratImages} carat images assigned` : "",
+      action: <Link className="btn ghost" to="/app/images">Ring images</Link>,
+    },
+  ];
 
-  if (intent === "edit") {
-    const id = fd.get("id");
-    const shape = String(fd.get("shape") || "").trim().toLowerCase();
-    const origin = normOrigin(fd.get("origin"));
-    const carat = normCarat(fd.get("carat"));
-    const colour = normColour(fd.get("colour"));
-    const clarity = normClarity(fd.get("clarity"));
-    const pence = poundsToPence(fd.get("price"));
-    if (!id || !shape || !origin || !carat || !colour || !clarity || pence == null || pence < 0) {
-      return { result: { ok: false, message: "Fill every field with a valid value (origin natural/lab, price in £)." } };
-    }
-    // Replace the row: remove the old id, upsert the (possibly changed) combination.
-    await supabase.from("diamond_prices").delete().eq("shop", session.shop).eq("id", id);
-    const { error } = await supabase.from("diamond_prices").upsert(
-      { shop: session.shop, shape, origin, carat, colour, clarity, price_pence: pence, updated_at: new Date().toISOString() },
-      { onConflict: "shop,shape,origin,carat,colour,clarity" },
-    );
-    if (error) return { result: { ok: false, message: error.message } };
-    return { result: { ok: true, message: "Row updated." } };
-  }
-
-  // ---- CSV upload ----
-  const file = fd.get("csv");
-  if (!file || typeof file.text !== "function") return { ok: false, message: "No CSV file received." };
-  let records;
-  try {
-    records = parse(await file.text(), { columns: (h) => h.map((x) => x.trim().toLowerCase()), skip_empty_lines: true, trim: true, relax_column_count: true });
-  } catch (err) { return { ok: false, message: `Could not parse CSV: ${err.message}` }; }
-  if (!records.length) return { ok: false, message: "CSV had no data rows." };
-  const missing = EXPECTED.filter((c) => !Object.keys(records[0]).includes(c));
-  if (missing.length) return { ok: false, message: `Missing column(s): ${missing.join(", ")}.` };
-
-  const rows = [], errors = [], seen = new Set(), origins = new Set();
-  let min = Infinity, max = -Infinity;
-  // One timestamp for the whole upload, so the prune below can tell this batch
-  // apart from rows left over by the previous price sheet.
-  const stamp = new Date().toISOString();
-  records.forEach((rec, i) => {
-    const line = i + 2;
-    const shape = String(rec.shape || "").trim().toLowerCase();
-    const origin = normOrigin(rec.origin), carat = normCarat(rec.carat);
-    const colour = normColour(rec.colour), clarity = normClarity(rec.clarity), pence = poundsToPence(rec.price);
-    const e = [];
-    if (!shape) e.push("shape empty");
-    if (!origin) e.push(`origin '${rec.origin}' not natural/lab`);
-    if (!carat) e.push(`carat '${rec.carat}' invalid`);
-    if (!colour) e.push(`colour '${rec.colour}' invalid`);
-    if (!clarity) e.push(`clarity '${rec.clarity}' invalid`);
-    if (pence == null || pence < 0) e.push(`price '${rec.price}' invalid`);
-    const key = `${shape}:${origin}:${carat}:${colour}:${clarity}`;
-    if (!e.length && seen.has(key)) e.push("duplicate in file");
-    seen.add(key);
-    if (e.length) { errors.push(`Line ${line}: ${e.join("; ")}`); return; }
-    origins.add(origin); min = Math.min(min, pence); max = Math.max(max, pence);
-    rows.push({ shop: session.shop, shape, origin, carat, colour, clarity, price_pence: pence, image_url: String(rec.image_url || "").trim() || null, updated_at: stamp });
-  });
-  if (errors.length) return { ok: false, message: `${errors.length} row(s) rejected — nothing saved.`, errors: errors.slice(0, 25) };
-  try {
-    // Write first, prune second. Supabase gives us no transaction across these
-    // calls, so ordering is the only safety we get: if a batch fails partway the
-    // shape still holds a complete (if stale) price set, rather than being wiped
-    // by a delete whose follow-up insert never landed.
-    for (let i = 0; i < rows.length; i += 500) {
-      const { error } = await supabase.from("diamond_prices").upsert(rows.slice(i, i + 500), { onConflict: "shop,shape,origin,carat,colour,clarity" });
-      if (error) throw new Error(error.message);
-    }
-    // Everything this sheet didn't touch is a combination the merchant removed.
-    const pairs = [...new Set(rows.map((r) => `${r.shape}|${r.origin}`))];
-    for (const pair of pairs) {
-      const [shp, org] = pair.split("|");
-      const { error } = await supabase.from("diamond_prices").delete()
-        .eq("shop", session.shop).eq("shape", shp).eq("origin", org).lt("updated_at", stamp);
-      if (error) throw new Error(error.message);
-    }
-  } catch (err) { return { ok: false, message: `Save failed: ${err.message}` }; }
-  return { ok: true, summary: { rows: rows.length, range: `${formatGBP(min)} – ${formatGBP(max)}`, origins: [...origins] } };
-};
-
-export default function PriceData() {
-  const { rows, total, page, shapeFilter, suggest } = useLoaderData();
-  const uploader = useFetcher();
-  const adder = useFetcher();
-  const fileRef = useRef(null);
-  const [, setParams] = useSearchParams();
-  const [tab, setTab] = useState("upload");
-  const [modal, setModal] = useState(false);
-  const [editRow, setEditRow] = useState(null); // null = add, row = edit
-
-  const busy = uploader.state === "submitting";
-  const up = uploader.data;
-  const s = up?.ok ? up.summary : null;
-  const addRes = adder.data?.result;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  useEffect(() => { if (addRes?.ok) setModal(false); }, [adder.data]); // eslint-disable-line
-
-  function upload(f) { if (!f) return; const fd = new FormData(); fd.append("csv", f); uploader.submit(fd, { method: "post", encType: "multipart/form-data" }); }
-  function goto(p) { setParams((prev) => { prev.set("page", String(p)); return prev; }); }
-  function filterShape(v) { setParams((prev) => { if (v) prev.set("shape", v); else prev.delete("shape"); prev.delete("page"); return prev; }); }
+  const required = steps.filter((s) => !s.optional);
+  const done = required.filter((s) => s.done).length;
+  const pct = Math.round((done / required.length) * 100);
 
   return (
-    <div>
-      <div className="page-head">
-        <h2>Price data</h2>
-        <p>Bulk-upload a monthly CSV, or add and edit individual stone prices by hand.</p>
+    <div className="wl">
+      <div className="wl-head">
+        <div>
+          <h2>Custom Ring Creator</h2>
+          <p>
+            Shoppers build their own ring — origin, carat, colour, clarity and size — and the
+            app prices it live and mints the exact variant at add to cart.
+          </p>
+        </div>
+        <div className="wl-head-actions">
+          <a className="btn" href={addBlockUrl} target="_top" rel="noreferrer">Activate block</a>
+          <a className="btn ghost" href={embedUrl} target="_top" rel="noreferrer">App embeds</a>
+        </div>
       </div>
+
+      <div className="card wl-progress">
+        <div className="wl-progress-top">
+          <h3>Setup</h3>
+          <span className="muted">{done} of {required.length} steps complete</span>
+        </div>
+        <div className="wl-bar"><i style={{ width: `${pct}%` }} /></div>
+      </div>
+
+      <ol className="wl-steps">
+        {steps.map((s, i) => (
+          <Step key={s.key} n={i + 1} done={s.done} optional={s.optional} title={s.title}
+            meta={s.meta} action={s.action}>
+            {s.body}
+          </Step>
+        ))}
+      </ol>
 
       <div className="card">
-        <div className="ds-tabs">
-          <button className={"ds-tab" + (tab === "upload" ? " is-active" : "")} onClick={() => setTab("upload")}>Upload CSV</button>
-          <button className={"ds-tab" + (tab === "manual" ? " is-active" : "")} onClick={() => setTab("manual")}>Add / edit manually</button>
-        </div>
-
-        {tab === "upload" && (
-          <div>
-            <h3>Upload price sheet</h3>
-            <p className="desc">Columns: shape, origin, carat, colour, clarity, price (image_url optional). Replaces existing prices for the shapes+origins in the file.</p>
-            <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => upload(e.target.files?.[0])} />
-            <div className={"drop" + (busy ? "" : up ? (up.ok ? " done" : " err") : "")}
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files?.[0]); }}>
-              <div className="ic">{busy ? "…" : up?.ok ? "✓" : up ? "!" : "⤒"}</div>
-              <b>{busy ? "Validating…" : up?.ok ? "Loaded" : up ? "Rejected" : "Drop your CSV here, or click to browse"}</b>
-              <small>{up && !busy ? up.message : "diamond_prices.csv · up to 5 MB"}</small>
-            </div>
-            {s && <div className="flash ok">Loaded {s.rows} prices · {s.range} · {s.origins.join(", ")}</div>}
-            {up && !up.ok && up.errors?.length ? <div className="flash err"><b>{up.message}</b><pre>{up.errors.join("\n")}</pre></div> : null}
-          </div>
-        )}
-
-        {tab === "manual" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div>
-                <h3 style={{ margin: 0 }}>Prices — {total} loaded</h3>
-                <p className="desc" style={{ margin: "4px 0 0" }}>Edit a price inline, delete a row, or add a new one.</p>
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <select className="ds-field" style={{ width: 160, marginTop: 0 }} value={shapeFilter} onChange={(e) => filterShape(e.target.value)}>
-                  <option value="">All shapes</option>
-                  {suggest.shapes.map((sh) => <option key={sh} value={sh}>{sh}</option>)}
-                </select>
-                <button className="btn" onClick={() => { setEditRow(null); setModal(true); }}>+ Add price</button>
-              </div>
-            </div>
-
-            {rows.length === 0 ? (
-              <p className="muted">No prices yet. Add one, or upload a CSV.</p>
-            ) : (
-              <div className="tablewrap">
-                <table>
-                  <thead><tr><th>Shape</th><th>Origin</th><th>Carat</th><th>Colour</th><th>Clarity</th><th>Price (£)</th><th></th></tr></thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.id}>
-                        <td>{row.shape}</td>
-                        <td><span className={"pill " + row.origin}>{row.origin}</span></td>
-                        <td>{parseFloat(row.carat).toFixed(2)}ct</td>
-                        <td>{row.colour}</td>
-                        <td>{row.clarity}</td>
-                        <td>£{Number(row.pounds).toLocaleString("en-GB")}</td>
-                        <td>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button className="btn ghost" style={{ padding: "5px 12px", letterSpacing: 0, textTransform: "none" }}
-                              onClick={() => { setEditRow(row); setModal(true); }}>Edit</button>
-                            <Form method="post">
-                              <input type="hidden" name="intent" value="delete" />
-                              <input type="hidden" name="id" value={row.id} />
-                              <button className="btn ghost" style={{ padding: "5px 12px", letterSpacing: 0, textTransform: "none" }} type="submit">Delete</button>
-                            </Form>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="tblfoot">
-                  <span>Page {page} of {totalPages}</span>
-                  <span style={{ display: "flex", gap: 8 }}>
-                    <button className="btn ghost" style={{ padding: "5px 12px", letterSpacing: 0, textTransform: "none" }} disabled={page <= 1} onClick={() => goto(page - 1)}>← Prev</button>
-                    <button className="btn ghost" style={{ padding: "5px 12px", letterSpacing: 0, textTransform: "none" }} disabled={page >= totalPages} onClick={() => goto(page + 1)}>Next →</button>
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <h3>How a sale works</h3>
+        <ol className="wl-flow">
+          <li><b>The shopper chooses.</b> Only combinations that exist in your price sheet are ever offered.</li>
+          <li><b>The app prices it.</b> Every total is calculated server-side from your data — the browser only ever sends the selection.</li>
+          <li><b>A variant is minted.</b> On add to cart the app creates a variant at ring base + stone, so the order carries the exact spec and price.</li>
+          <li><b>The spec reaches the order.</b> Carat, colour, clarity and size ride along as line item properties, onto the packing slip.</li>
+        </ol>
+        <p className="muted" style={{ marginTop: 12 }}>
+          Raising your prices next month is one CSV upload — past orders keep the price they were sold at.
+        </p>
       </div>
-
-      {/* ---- Add price popup ---- */}
-      {modal && (
-        <div className="ds-modal-backdrop" onClick={() => setModal(false)}>
-          <div className="ds-modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
-            <div className="ds-modal-head">
-              <h4>{editRow ? "Edit price" : "Add a price"}</h4>
-              <button className="ds-modal-x" onClick={() => setModal(false)} aria-label="Close">×</button>
-            </div>
-            <adder.Form method="post" className="ds-modal-body">
-              <input type="hidden" name="intent" value={editRow ? "edit" : "add"} />
-              {editRow && <input type="hidden" name="id" value={editRow.id} />}
-              <p className="muted" style={{ marginBottom: 14 }}>Type to pick an existing value or enter a brand-new one (e.g. a new shape). If the combination exists, its price updates.</p>
-              <div className="ds-form-grid">
-                <label><span className="muted">Shape</span>
-                  <input name="shape" list="dl-shapes" className="ds-field" placeholder="emerald" defaultValue={editRow?.shape || "emerald"} required />
-                  <datalist id="dl-shapes">{suggest.shapes.map((x) => <option key={x} value={x} />)}</datalist>
-                </label>
-                <label><span className="muted">Origin</span>
-                  <select name="origin" className="ds-field" defaultValue={editRow?.origin || "lab"}><option value="natural">natural</option><option value="lab">lab</option></select>
-                </label>
-                <label><span className="muted">Carat</span>
-                  <input name="carat" className="ds-field" placeholder="1.00" defaultValue={editRow?.carat || ""} inputMode="decimal" required /></label>
-                <label><span className="muted">Colour</span>
-                  <input name="colour" list="dl-colours" className="ds-field" placeholder="D" defaultValue={editRow?.colour || ""} required />
-                  <datalist id="dl-colours">{suggest.colours.map((x) => <option key={x} value={x} />)}</datalist>
-                </label>
-                <label><span className="muted">Clarity</span>
-                  <input name="clarity" list="dl-clarities" className="ds-field" placeholder="VVS1" defaultValue={editRow?.clarity || ""} required />
-                  <datalist id="dl-clarities">{suggest.clarities.map((x) => <option key={x} value={x} />)}</datalist>
-                </label>
-                <label><span className="muted">Price (£)</span>
-                  <input name="price" className="ds-field" placeholder="720" defaultValue={editRow?.pounds || ""} inputMode="decimal" required /></label>
-              </div>
-              {addRes && !addRes.ok && <div className="flash err" style={{ marginTop: 12 }}>{addRes.message}</div>}
-            </adder.Form>
-            <div className="ds-modal-tools" style={{ borderTop: "1px solid var(--line)", borderBottom: "none", justifyContent: "flex-end" }}>
-              <button className="btn ghost" style={{ letterSpacing: 0, textTransform: "none" }} onClick={() => setModal(false)}>Cancel</button>
-              <button className="btn" style={{ letterSpacing: 0, textTransform: "none" }} onClick={(e) => e.currentTarget.closest(".ds-modal").querySelector("form").requestSubmit()}>
-                {adder.state !== "idle" ? "Saving…" : "Save price"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-
-export const headers = (headersArgs) => boundary.headers(headersArgs);
