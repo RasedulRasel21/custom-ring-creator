@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFetcher, useLoaderData } from "react-router";
 import { SaveBar } from "@shopify/app-bridge-react";
+import TokenEditor from "../components/TokenEditor";
 import { authenticate } from "../shopify.server";
 import { getSupabase } from "../supabase.server";
 import { getShopSettings, saveShopSettings } from "../lib/diamonds.server";
@@ -57,8 +58,6 @@ export default function Settings() {
 
   const [fields, setFields] = useState(new Set(settings.lineItemFields));
   const [sizes, setSizes] = useState(settings.ringSizes);
-  const [newSize, setNewSize] = useState("");
-  const [editing, setEditing] = useState(null); // index being renamed
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => { if (res?.ok) setDirty(false); }, [res]);
@@ -73,31 +72,40 @@ export default function Settings() {
   }
 
   // ---- ring sizes ---------------------------------------------------------
+  // TokenEditor works in {id,label}; a size is its own identity, so they match.
+  const sizeTokens = sizes.map((s) => ({ id: s, label: s }));
+
   function commitSizes(next) {
     setSizes(next);
     setDirty(true);
   }
+  function has(list, v) { return list.some((s) => s.toLowerCase() === v.toLowerCase()); }
+
   // One field accepts several at once — pasting "3, 3.5, 4" beats 20 clicks.
   function addSizes(text) {
-    const additions = String(text).split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
-    if (!additions.length) return;
-    const lower = new Set(sizes.map((s) => s.toLowerCase()));
-    const fresh = additions.filter((s) => !lower.has(s.toLowerCase()));
+    const fresh = [];
+    for (const raw of String(text).split(/[,\s]+/)) {
+      const s = raw.trim();
+      if (s && !has(sizes, s) && !has(fresh, s)) fresh.push(s);
+    }
     if (fresh.length) commitSizes([...sizes, ...fresh].slice(0, MAX_RING_SIZES));
-    setNewSize("");
   }
-  function removeSize(i) { commitSizes(sizes.filter((_, n) => n !== i)); }
-  function renameSize(i, value) {
-    const v = value.trim();
-    if (!v) return;
-    if (sizes.some((s, n) => n !== i && s.toLowerCase() === v.toLowerCase())) return;
-    commitSizes(sizes.map((s, n) => (n === i ? v : s)));
+  function removeSize(id) { commitSizes(sizes.filter((s) => s !== id)); }
+  function renameSize(id, value) {
+    if (value !== id && has(sizes, value)) return; // would collide
+    commitSizes(sizes.map((s) => (s === id ? value : s)));
   }
-  function moveSize(i, delta) {
-    const j = i + delta;
-    if (j < 0 || j >= sizes.length) return;
-    const next = sizes.slice();
-    [next[i], next[j]] = [next[j], next[i]];
+  // Moves `id` into `targetId`'s slot. Direction matters: dropping onto a token
+  // further along means landing after it, otherwise the item is re-inserted at
+  // the position it already occupied and nothing moves.
+  function reorderSize(id, targetId) {
+    if (!targetId || id === targetId) return;
+    const from = sizes.indexOf(id);
+    const to = sizes.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = sizes.filter((s) => s !== id);
+    const at = next.indexOf(targetId);
+    next.splice(from < to ? at + 1 : at, 0, id);
     commitSizes(next);
   }
   // Not named usePreset* — the `use` prefix makes lint treat it as a React hook.
@@ -115,7 +123,6 @@ export default function Settings() {
   function discard() {
     setFields(new Set(settings.lineItemFields));
     setSizes(settings.ringSizes);
-    setEditing(null);
     setDirty(false);
   }
 
@@ -161,44 +168,14 @@ export default function Settings() {
               Click a size to rename it, or use the arrows to reorder.
             </p>
 
-            <div className="sz-list">
-              {sizes.map((s, i) => (
-                <span className="sz" key={`${s}-${i}`}>
-                  {editing === i ? (
-                    <input
-                      className="sz-edit"
-                      /* Focus on mount rather than autoFocus, which lint flags.
-                         The input is uncontrolled, so typing causes no re-render
-                         and the caret is never yanked back. */
-                      ref={(el) => el && el.focus()}
-                      defaultValue={s}
-                      onBlur={(e) => { renameSize(i, e.target.value); setEditing(null); }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { renameSize(i, e.target.value); setEditing(null); }
-                        if (e.key === "Escape") setEditing(null);
-                      }}
-                    />
-                  ) : (
-                    <button type="button" className="sz-name" onClick={() => setEditing(i)} title="Rename">{s}</button>
-                  )}
-                  <button type="button" className="sz-mv" onClick={() => moveSize(i, -1)} disabled={i === 0} aria-label={`Move ${s} earlier`}>‹</button>
-                  <button type="button" className="sz-mv" onClick={() => moveSize(i, 1)} disabled={i === sizes.length - 1} aria-label={`Move ${s} later`}>›</button>
-                  <button type="button" className="sz-x" onClick={() => removeSize(i)} aria-label={`Remove ${s}`}>×</button>
-                </span>
-              ))}
-              {!sizes.length && <span className="muted">No sizes — add one below, or pick a preset.</span>}
-            </div>
-
-            <div className="sz-add">
-              <input
-                className="ds-field"
-                placeholder="Add a size — or several: 3, 3.5, 4"
-                value={newSize}
-                onChange={(e) => setNewSize(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSizes(newSize); } }}
-              />
-              <button type="button" className="btn ghost" onClick={() => addSizes(newSize)} disabled={!newSize.trim()}>Add</button>
-            </div>
+            <TokenEditor
+              items={sizeTokens}
+              onAdd={addSizes}
+              onRename={renameSize}
+              onDelete={removeSize}
+              onReorder={reorderSize}
+              placeholder="Add a size — or several: 3, 3.5, 4"
+            />
 
             <div className="sz-presets">
               <span className="muted">Replace with:</span>

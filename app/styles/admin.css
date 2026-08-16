@@ -101,23 +101,53 @@
 .ds-admin .mini.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .ds-admin .mini.readonly{cursor:default;opacity:.9}
 
-/* ring size editor */
-.ds-admin .sz-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.ds-admin .sz{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:20px;
-  background:#fff;overflow:hidden;font-size:11.5px}
-.ds-admin .sz-name{font:inherit;border:none;background:none;padding:5px 4px 5px 12px;color:var(--ink);
-  cursor:text;min-width:26px;text-align:center}
-.ds-admin .sz-name:hover{color:var(--gold-dark)}
-.ds-admin .sz-edit{font:inherit;font-size:11.5px;border:none;outline:none;width:58px;padding:5px 6px 5px 10px;background:#fff}
-.ds-admin .sz-mv,.ds-admin .sz-x{font:inherit;border:none;background:none;cursor:pointer;color:var(--mist);
-  padding:5px 4px;line-height:1}
-.ds-admin .sz-mv:hover:not(:disabled),.ds-admin .sz-x:hover{color:var(--ink)}
-.ds-admin .sz-mv:disabled{opacity:.25;cursor:default}
-.ds-admin .sz-x{padding-right:10px;font-size:14px}
-.ds-admin .sz-x:hover{color:var(--warn)}
-.ds-admin .sz-add{display:flex;gap:8px;align-items:center;margin-top:12px;max-width:420px}
-.ds-admin .sz-add .ds-field{margin-top:0}
-.ds-admin .sz-add .btn{padding:9px 18px;white-space:nowrap}
+/* ---- TokenEditor: editable, reorderable short labels ----------------------
+   One bordered well holds the tokens and the add field, so a 19-item list reads
+   as a single control instead of scattered chips. Per-token tools stay hidden
+   until hover/focus — showing arrows and a delete on every token at once is
+   what made the first version unreadable. */
+.ds-admin .tk-well{display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  border:1px solid var(--line);border-radius:8px;background:#fdfdfc;padding:10px;margin-top:10px}
+.ds-admin .tk.is-disabled{opacity:.55;pointer-events:none}
+
+.ds-admin .tk-item{display:inline-flex;align-items:center;background:#fff;border:1px solid var(--line);
+  border-radius:20px;font-size:12px;cursor:grab;transition:border-color .12s,box-shadow .12s,transform .12s}
+.ds-admin .tk-item:hover{border-color:var(--gold);box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.ds-admin .tk-item.is-dragging{opacity:.4;cursor:grabbing}
+.ds-admin .tk-item.is-over{border-color:var(--gold-dark);transform:translateY(-1px)}
+
+.ds-admin .tk-label{font:inherit;font-size:12px;border:none;background:none;color:var(--ink);
+  padding:6px 12px;cursor:text;white-space:nowrap}
+.ds-admin .tk-edit{font:inherit;font-size:12px;border:none;outline:none;background:#fff;
+  width:84px;padding:6px 10px;border-radius:20px}
+
+/* Reserved width, so revealing the tools doesn't reflow the whole row. */
+.ds-admin .tk-tools{display:flex;align-items:center;width:0;overflow:hidden;opacity:0;
+  transition:width .12s ease,opacity .12s ease}
+.ds-admin .tk-item:hover .tk-tools,
+.ds-admin .tk-item:focus-within .tk-tools{width:56px;opacity:1}
+.ds-admin .tk-mv,.ds-admin .tk-x{font:inherit;border:none;background:none;cursor:pointer;
+  color:var(--mist);padding:6px 3px;line-height:1}
+.ds-admin .tk-mv:hover:not(:disabled){color:var(--ink)}
+.ds-admin .tk-mv:disabled{opacity:.25;cursor:default}
+.ds-admin .tk-x{font-size:15px;padding-right:11px}
+.ds-admin .tk-x:hover{color:var(--warn)}
+
+/* Touch has no hover — keep the tools out permanently there. */
+@media (hover:none){
+  .ds-admin .tk-tools{width:56px;opacity:1}
+  .ds-admin .tk-item{cursor:default}
+}
+
+.ds-admin .tk-add{display:inline-flex;align-items:center;gap:6px;flex:1;min-width:210px}
+.ds-admin .tk-add input{font:inherit;font-size:12px;border:1px dashed #d8d2c5;border-radius:20px;
+  background:#fff;padding:6px 12px;flex:1;min-width:120px;color:var(--ink)}
+.ds-admin .tk-add input:focus{outline:none;border-color:var(--gold);border-style:solid}
+.ds-admin .tk-addbtn{font:inherit;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  font-weight:600;border:none;background:var(--ink);color:#fff;border-radius:20px;padding:7px 14px;cursor:pointer}
+.ds-admin .tk-addbtn:hover:not(:disabled){background:var(--gold-dark)}
+.ds-admin .tk-addbtn:disabled{background:#dcd8cf;cursor:default}
+
 .ds-admin .sz-presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}
 .ds-admin .sz-presets .mini{cursor:pointer}
 .ds-admin .sz-presets .mini:hover{border-color:var(--gold);color:var(--gold-dark)}
