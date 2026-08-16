@@ -37,8 +37,6 @@
 .ri-btn{font-family:inherit;font-size:13px;font-weight:500;padding:8px 14px;border-radius:8px;border:1px solid #babec3;
   background:#fff;color:#303030;cursor:pointer;transition:.12s;box-shadow:0 1px 0 rgba(0,0,0,.05)}
 .ri-btn:hover{background:var(--p-hover)}
-.ri-btn.ri-primary{background:var(--p-brand);border-color:var(--p-brand);color:#fff;box-shadow:0 1px 0 rgba(0,0,0,.15),inset 0 -1px 0 rgba(0,0,0,.2)}
-.ri-btn.ri-primary:hover{background:var(--p-brand-hover)}
 .ri-btn.ri-plain{border:none;box-shadow:none;background:none;color:var(--p-focus);padding:8px 6px}
 .ri-btn.ri-plain:hover{background:#f0f6ff}
 .ri-btn:disabled{color:#c9c9c9;cursor:default;box-shadow:none;background:#fff}
@@ -78,11 +76,9 @@
 .ri-pg-dot:hover{background:var(--p-hover)}
 .ri-pg-dot.on{background:var(--p-brand);color:#fff;font-weight:600}
 
-.ri-savebar{position:sticky;bottom:0;margin-top:22px;background:var(--p-surface);border:1px solid var(--p-border);
-  border-radius:var(--radius);padding:14px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 -4px 16px rgba(0,0,0,.04)}
-.ri-savebar .msg{font-size:13px;color:var(--p-subdued)}
-.ri-savebar .right{margin-left:auto;display:flex;gap:10px;align-items:center}
-.ri-saved{font-size:13px;color:var(--p-success)}
+/* Saving is handled by App Bridge's native SaveBar, matching the other admin
+   pages — the old in-page .ri-savebar and its primary button are gone. */
+.ri-scope{font-size:12.5px;color:var(--p-subdued);margin-top:8px}
 @media(max-width:560px){
   .ri-shape-meta{margin-left:0;width:100%}
   .ri-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}

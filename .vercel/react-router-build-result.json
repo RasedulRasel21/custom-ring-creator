@@ -18,6 +18,7 @@
       "routes/proxy.cart": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/auth.$": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/_index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/app.appearance": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.settings": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app.images": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/app._index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -109,6 +110,15 @@
         "path": "app",
         "config": {}
       },
+      "routes/app.appearance": {
+        "id": "routes/app.appearance",
+        "parentId": "routes/app",
+        "file": "app/routes/app.appearance.jsx",
+        "path": "appearance",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
       "routes/app.settings": {
         "id": "routes/app.settings",
         "parentId": "routes/app",
@@ -148,9 +158,9 @@
     }
   },
   "reactRouterConfig": {
-    "appDirectory": "D:/cracktab/Avita Jewellery/avita-diamond-selector/app",
+    "appDirectory": "D:/cracktab/custom-ring-creator/app",
     "basename": "/",
-    "buildDirectory": "D:/cracktab/Avita Jewellery/avita-diamond-selector/build",
+    "buildDirectory": "D:/cracktab/custom-ring-creator/build",
     "future": {
       "unstable_optimizeDeps": false,
       "v8_passThroughRequests": false,
@@ -219,6 +229,12 @@
         "parentId": "root",
         "file": "routes/app.jsx",
         "path": "app"
+      },
+      "routes/app.appearance": {
+        "id": "routes/app.appearance",
+        "parentId": "routes/app",
+        "file": "routes/app.appearance.jsx",
+        "path": "appearance"
       },
       "routes/app.settings": {
         "id": "routes/app.settings",
@@ -305,6 +321,11 @@
             "file": "routes/app.jsx",
             "path": "app",
             "children": [
+              {
+                "id": "routes/app.appearance",
+                "file": "routes/app.appearance.jsx",
+                "path": "appearance"
+              },
               {
                 "id": "routes/app.settings",
                 "file": "routes/app.settings.jsx",

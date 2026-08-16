@@ -150,6 +150,11 @@ export default function Appearance() {
   html,body{margin:0;background:#fff}
   body{padding:22px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif}
   .crc-ds__chip,.crc-ds__cta,.crc-ds__select{pointer-events:none}
+  /* Preview-only chrome for the spinner sample. Deliberately NOT in the
+     storefront stylesheet — shoppers never see this framing. */
+  .crc-ds--sample{margin-top:18px;padding-top:16px;border-top:1px solid #e8e8e8}
+  .crc-ds__sample-row{display:flex;align-items:center;gap:12px}
+  .crc-ds__sample-label{font-size:12px;color:#8a8a80}
 </style>
 </head><body>${buildPreviewBody(a, preview)}</body></html>`;
   }, [form, preview]);

@@ -97,6 +97,16 @@ export function buildPreviewBody(appearance, data = SAMPLE_DATA, texts = {}) {
     <button class="crc-ds__cta">${esc(ctaText)}${a.showSummary ? " · £4,250" : ""}</button>
   </div>`;
 
+  // The real loader covers the whole stage, so showing it in place would hide
+  // the preview. It is broken out as a labelled sample instead — the element and
+  // class are the genuine ones, so the colour and motion are what shoppers get.
+  const loader = `<div class="crc-ds crc-ds--sample">
+    <div class="crc-ds__sample-row">
+      <span class="crc-ds__spinner"></span>
+      <span class="crc-ds__sample-label">While prices load</span>
+    </div>
+  </div>`;
+
   return `<div class="crc-ds crc-ds--compact ${esc(appearanceRootClasses(a))}">
     <div class="crc-ds__stage">
       <div class="crc-ds__selector">
@@ -104,5 +114,5 @@ export function buildPreviewBody(appearance, data = SAMPLE_DATA, texts = {}) {
         ${summary}
       </div>
     </div>
-  </div>`;
+  </div>${loader}`;
 }

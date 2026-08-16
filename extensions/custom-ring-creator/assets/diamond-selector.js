@@ -293,12 +293,32 @@
     // ---- appearance -------------------------------------------------------
     // Everything here is resolved server-side (app/lib/appearance.js) and
     // applied verbatim — no style decisions are made in the browser.
+
+    // The loading spinner is on screen BEFORE /options can answer, so on a cold
+    // visit it can only use the stylesheet defaults. Remembering the last known
+    // vars lets every subsequent visit paint it in the merchant's colour. Only
+    // the vars are replayed, never the control types or custom CSS: those would
+    // move the layout if the merchant had since changed them.
+    var VARS_KEY = "crc-ds-vars";
+
+    function setVars(vars) {
+      Object.keys(vars).forEach(function (k) {
+        root.style.setProperty(k, vars[k]);
+      });
+    }
+
+    function applyCachedVars() {
+      try {
+        var cached = JSON.parse(localStorage.getItem(VARS_KEY) || "null");
+        if (cached && typeof cached === "object") setVars(cached);
+      } catch (e) { /* private mode, quota, corrupt value — defaults are fine */ }
+    }
+
     function applyAppearance(bundle) {
       if (!bundle) return;
       if (bundle.vars) {
-        Object.keys(bundle.vars).forEach(function (k) {
-          root.style.setProperty(k, bundle.vars[k]);
-        });
+        setVars(bundle.vars);
+        try { localStorage.setItem(VARS_KEY, JSON.stringify(bundle.vars)); } catch (e) { /* ignore */ }
       }
       if (bundle.rootClasses) {
         bundle.rootClasses.split(/\s+/).forEach(function (c) {
@@ -774,6 +794,7 @@
       t.addEventListener("click", function (e) { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
     }
 
+    applyCachedVars(); // paint the spinner in the merchant's colour, pre-fetch
     enableThumbDrag();
     renderThumbs(null);
 

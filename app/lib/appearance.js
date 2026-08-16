@@ -52,6 +52,7 @@ export const COLOUR_FIELDS = [
   { key: "ctaBg", label: "Button", help: "Add to cart background" },
   { key: "ctaText", label: "Button text", help: "" },
   { key: "ctaHoverBg", label: "Button hover", help: "" },
+  { key: "spinnerColor", label: "Loading spinner", help: "Shown while prices load" },
 ];
 
 export const APPEARANCE_DEFAULTS = {
@@ -73,6 +74,7 @@ export const APPEARANCE_DEFAULTS = {
   ctaBg: "#1a1a1a",
   ctaText: "#ffffff",
   ctaHoverBg: BRAND,
+  spinnerColor: BRAND,
   // escape hatches
   customClasses: "",
   customCss: "",
@@ -121,6 +123,7 @@ export function normalizeAppearance(raw) {
     ctaBg: colour(a.ctaBg, d.ctaBg),
     ctaText: colour(a.ctaText, d.ctaText),
     ctaHoverBg: colour(a.ctaHoverBg, d.ctaHoverBg),
+    spinnerColor: colour(a.spinnerColor, d.spinnerColor),
     // Class attribute, not a selector — reject anything that could break out.
     customClasses: CLASS_LIST.test(classes) ? classes.replace(/\s+/g, " ") : "",
     customCss: String(a.customCss ?? d.customCss).slice(0, MAX_CUSTOM_CSS),
@@ -159,6 +162,7 @@ export function appearanceVars(appearance) {
     "--ds-cta-bg": a.ctaBg,
     "--ds-cta-fg": a.ctaText,
     "--ds-cta-hover-bg": a.ctaHoverBg,
+    "--ds-spinner": a.spinnerColor,
     "--ds-heading-font": FONT_STACK[a.headingFont],
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useFetcher, useLoaderData, useSearchParams } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
+import { SaveBar, useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { getCaratsForShape, getCaratImages, saveCaratImage } from "../lib/diamonds.server";
 import riStyles from "../styles/ring-images.css?url";
@@ -70,7 +70,19 @@ export default function Images() {
   const [perPage, setPerPage] = useState(8);
 
   useEffect(() => { setMap(images); setBaseline(images); setDirty(false); setPage(1); /* eslint-disable-next-line */ }, [shape]);
-  useEffect(() => { if (saver.data?.ok && saver.data?.saved) { setBaseline(map); setDirty(false); } /* eslint-disable-next-line */ }, [saver.data]);
+  // The native SaveBar just closes on save, so success and failure both need a
+  // toast — otherwise removing the inline bar would leave errors invisible.
+  useEffect(() => {
+    if (!saver.data) return;
+    if (saver.data.ok && saver.data.saved) {
+      setBaseline(map);
+      setDirty(false);
+      shopify?.toast?.show?.(saver.data.message || "Ring images saved.");
+    } else if (saver.data.ok === false) {
+      shopify?.toast?.show?.(saver.data.message || "Could not save ring images.", { isError: true });
+    }
+    /* eslint-disable-next-line */
+  }, [saver.data]);
   useEffect(() => {
     if (resolver.data?.resolved && resolver.data.url) { setMap((m) => ({ ...m, [resolver.data.carat]: resolver.data.url })); setDirty(true); }
     else if (resolver.data && !resolver.data.ok) shopify?.toast?.show?.(resolver.data.message || "Could not use that file.", { isError: true });
@@ -115,9 +127,15 @@ export default function Images() {
 
   return (
     <div className="ri">
+      <SaveBar id="ring-images-save" open={dirty}>
+        <button variant="primary" onClick={saveAll} {...(saver.state !== "idle" ? { loading: "" } : {})}>Save</button>
+        <button onClick={discard}>Discard</button>
+      </SaveBar>
+
       <div className="ri-head">
         <h2>Ring images</h2>
         <p>Assign a photo per carat. The selector swaps the ring image when a customer changes carat. Optional — any carat left blank falls back to the product photo.</p>
+        <p className="ri-scope">Changes apply to the <b>{cap(shape)}</b> selector on save.</p>
       </div>
 
       {/* shape + summary */}
@@ -205,15 +223,6 @@ export default function Images() {
         </div>
       </div>
 
-      {/* save bar */}
-      <div className="ri-savebar">
-        <span className="msg">Changes apply to the <b>{cap(shape)}</b> selector on save.</span>
-        <div className="right">
-          {saver.data?.saved && <span className="ri-saved">✓ Saved</span>}
-          <button className="ri-btn" onClick={discard} disabled={!dirty}>Discard</button>
-          <button className="ri-btn ri-primary" onClick={saveAll} disabled={!dirty || saver.state !== "idle"}>{saver.state !== "idle" ? "Saving…" : "Save"}</button>
-        </div>
-      </div>
     </div>
   );
 }

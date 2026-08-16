@@ -2,7 +2,10 @@
 .crc-ds__stage{position:relative}
 .crc-ds__loader{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:20;transition:opacity .35s ease}
 .crc-ds:not(.is-loading) .crc-ds__loader{opacity:0;pointer-events:none}
-.crc-ds__spinner{width:34px;height:34px;border:3px solid #e4e0d8;border-top-color:#9a7b4f;border-radius:50%;animation:crc-ds-spin .8s linear infinite}
+/* Vars are declared on .crc-ds below, but the loader is a descendant so they
+   resolve here too. Fallbacks keep the spinner painted if the block markup ever
+   renders before the custom properties are known. */
+.crc-ds__spinner{width:34px;height:34px;border:3px solid var(--ds-line,#e4e0d8);border-top-color:var(--ds-spinner,#22c55e);border-radius:50%;animation:crc-ds-spin .8s linear infinite}
 @keyframes crc-ds-spin{to{transform:rotate(360deg)}}
 .crc-ds {
   --ds-ink: #1a1a1a;
@@ -20,6 +23,7 @@
   /* Merchant-controlled — the app overwrites these inline from the Appearance
      page (see appearanceVars in app/lib/appearance.js). The values here are the
      defaults a store gets before anything is customised. */
+  --ds-spinner: var(--ds-gold);
   --ds-chip-radius: 999px;
   --ds-chip-pad: 9px 16px;
   --ds-chip-font: 13px;
