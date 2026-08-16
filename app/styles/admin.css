@@ -12,7 +12,9 @@
   --serif:Georgia,'Times New Roman',serif;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
   color:var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased;
-  max-width:940px;
+  /* Capped AND centred. Without the auto margins the column hugged the left
+     edge on wide screens, which is what made every page look off-centre. */
+  max-width:940px; margin-inline:auto;
 }
 /* The Appearance page needs room for its side-by-side preview. */
 .ds-admin:has(.ap-wide){max-width:1320px}
