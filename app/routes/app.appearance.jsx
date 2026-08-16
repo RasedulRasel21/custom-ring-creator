@@ -228,6 +228,24 @@ export default function Appearance() {
                 onClick={() => set({ chipFullWidth: !form.chipFullWidth })} />
             </div>
             <div className="cfg-row">
+              <div className="txt">
+                <b>Slide long pill rows</b>
+                <p>Keep a long row on one line and scroll it sideways instead of wrapping onto several. Only affects steps shown as pills.</p>
+              </div>
+              <button type="button" className={"toggle" + (form.pillSlider ? " on" : "")} aria-pressed={form.pillSlider}
+                onClick={() => set({ pillSlider: !form.pillSlider })} />
+            </div>
+            {form.pillSlider && (
+              <div className="cfg-row">
+                <div className="txt">
+                  <b>Start sliding after</b>
+                  <p>Rows with more than this many options scroll. Shorter rows just wrap as usual.</p>
+                </div>
+                <input type="number" min={2} max={50} className="ds-field ap-num" aria-label="Start sliding after"
+                  value={form.pillSliderAfter} onChange={(e) => set({ pillSliderAfter: e.target.value })} />
+              </div>
+            )}
+            <div className="cfg-row">
               <div className="txt"><b>Price breakdown</b><p>Show the ring price, diamond price and total above the button.</p></div>
               <button type="button" className={"toggle" + (form.showSummary ? " on" : "")} aria-pressed={form.showSummary}
                 onClick={() => set({ showSummary: !form.showSummary })} />

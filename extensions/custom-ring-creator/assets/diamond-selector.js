@@ -66,6 +66,9 @@
 
     var q = function (sel) { return root.querySelector(sel); };
     var state = { origin: null, carat: null, colour: null, clarity: null, size: null };
+    // Overwritten by applyAppearance before any field is painted; these are the
+    // fallbacks used if /options never answers.
+    var pillCfg = { slider: true, after: 8 };
     var combos = { natural: [], lab: [] }; // filled from server
     var serverImages = {}; // carat -> url, from options (app mapping + CSV)
     var featuredImage = root.getAttribute("data-featured-image") || "";
@@ -261,11 +264,59 @@
       if (!wrap) return null;
       var chips = wrap.querySelector("[data-ds-chips]");
       var sel = wrap.querySelector("[data-ds-select]");
-      var mode = "pills";
+      var mode = "dropdown";
       var items = [];
       var value = null;
+      var arrows = null;
 
       function label(v) { return opts.label ? opts.label(v) : v; }
+
+      // ---- slider: keep a long pill row on one line and scroll it ----------
+      function updateArrows() {
+        if (!arrows) return;
+        var max = chips.scrollWidth - chips.clientWidth;
+        arrows.prev.disabled = chips.scrollLeft <= 1;
+        arrows.next.disabled = chips.scrollLeft >= max - 1;
+      }
+
+      function nudge(dir) {
+        var by = Math.max(120, Math.round(chips.clientWidth * 0.8));
+        try {
+          chips.scrollBy({ left: dir * by, behavior: "smooth" });
+        } catch (e) {
+          chips.scrollLeft += dir * by; // older browsers ignore the options form
+        }
+      }
+
+      function ensureArrows(on) {
+        if (!on) {
+          if (arrows) {
+            wrap.removeChild(arrows.prev);
+            wrap.removeChild(arrows.next);
+            arrows = null;
+          }
+          return;
+        }
+        if (!arrows) {
+          var mk = function (dir, glyph, delta) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "crc-ds__arrow crc-ds__arrow--" + dir;
+            b.setAttribute("aria-label", delta < 0 ? "Show earlier options" : "Show more options");
+            b.innerHTML = glyph;
+            b.addEventListener("click", function () { nudge(delta); });
+            wrap.appendChild(b);
+            return b;
+          };
+          arrows = { prev: mk("prev", "&#8249;", -1), next: mk("next", "&#8250;", 1) };
+          chips.addEventListener("scroll", updateArrows);
+          window.addEventListener("resize", updateArrows);
+        }
+        updateArrows();
+        // Widths are still settling on the first paint (and the block is behind
+        // the loading overlay), so re-check once the layout has resolved.
+        setTimeout(updateArrows, 0);
+      }
 
       function paint() {
         var dropdown = mode === "dropdown";
@@ -297,7 +348,11 @@
             b.addEventListener("click", function () { set(v, true); });
             chips.appendChild(b);
           });
+          var slide = pillCfg.slider && items.length > pillCfg.after;
+          chips.classList.toggle("is-slider", slide);
+          ensureArrows(slide);
         }
+        if (dropdown) ensureArrows(false); // no arrows to leave behind
       }
 
       // `fire` is false for programmatic sets so restoring state can't loop
@@ -370,9 +425,16 @@
         style.textContent = bundle.css;
         root.appendChild(style);
       }
+      // Set before setMode, which repaints the fields and reads this.
+      if (bundle.pills) {
+        pillCfg = {
+          slider: bundle.pills.slider !== false,
+          after: bundle.pills.after > 0 ? bundle.pills.after : 8,
+        };
+      }
       var controls = bundle.controls || {};
       Object.keys(fields).forEach(function (k) {
-        if (fields[k]) fields[k].setMode(controls[k] || "pills");
+        if (fields[k]) fields[k].setMode(controls[k] || "dropdown");
       });
     }
 
@@ -513,10 +575,11 @@
     };
 
     // Both controls ship hidden so neither can flash before the merchant's
-    // choice arrives. Reveal pills now as the floor, so a failed /options call
-    // leaves a usable-looking block rather than five empty rows.
+    // choice arrives. Reveal dropdowns now as the floor — matching the default
+    // in app/lib/appearance.js — so a failed /options call leaves a usable
+    // block rather than five empty rows.
     Object.keys(fields).forEach(function (k) {
-      if (fields[k]) fields[k].setMode("pills");
+      if (fields[k]) fields[k].setMode("dropdown");
     });
 
     // Thumbnails — mode chosen in block settings: per-carat images, or the

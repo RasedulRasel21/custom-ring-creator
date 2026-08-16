@@ -536,6 +536,64 @@
 }
 
 /* The dual-control wrapper: only the chosen control is ever un-hidden. */
+.crc-ds__control {
+  position: relative; /* anchors the slider arrows */
+}
 .crc-ds__control [hidden] {
   display: none !important;
+}
+
+/* ---- Pill slider ----------------------------------------------------------
+   A step like carat can carry 15+ values. Wrapping those onto four rows pushes
+   the price out of view, so past a merchant-set count the row scrolls sideways
+   on one line instead. Applied by makeField() in diamond-selector.js. */
+.crc-ds__chips.is-slider {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Room for the arrows to overlay without covering the first/last pill. */
+  padding: 2px 30px;
+  margin: 0 -30px;
+}
+.crc-ds__chips.is-slider::-webkit-scrollbar {
+  display: none;
+}
+.crc-ds__chips.is-slider .crc-ds__chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+.crc-ds__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--ds-line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ds-ink);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.14);
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.crc-ds__arrow--prev { left: 0; }
+.crc-ds__arrow--next { right: 0; }
+.crc-ds__arrow:hover:not([disabled]) {
+  border-color: var(--ds-gold);
+  color: var(--ds-gold);
+}
+/* Hidden rather than greyed at the ends — a dead button reads as broken. */
+.crc-ds__arrow[disabled] {
+  opacity: 0;
+  pointer-events: none;
 }

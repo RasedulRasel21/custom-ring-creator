@@ -58,11 +58,17 @@ export const COLOUR_FIELDS = [
 export const APPEARANCE_DEFAULTS = {
   // layout
   layout: "stacked",
-  controlStyle: "pills",
+  // Dropdown by default: a step like carat can carry 15+ values, which as pills
+  // wraps into several rows and pushes the price out of view.
+  controlStyle: "dropdown",
   stepStyles: { origin: "", carat: "", colour: "", clarity: "", size: "" },
   chipShape: "pill",
   chipSize: "md",
   chipFullWidth: false,
+  // When a step IS shown as pills, keep long rows on one line and scroll them
+  // rather than wrapping. On by default — it is the sane behaviour for carat.
+  pillSlider: true,
+  pillSliderAfter: 8,
   showSummary: true,
   headingFont: "sans",
   // colour
@@ -91,6 +97,10 @@ function colour(value, fallback) {
   const s = String(value || "").trim();
   return CSS_COLOUR.test(s) ? s : fallback;
 }
+function intIn(value, min, max, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
 
 // Never trust stored JSON — it survives across app versions and is edited by
 // hand in Supabase. Everything gets clamped back to a known-good value.
@@ -113,6 +123,8 @@ export function normalizeAppearance(raw) {
     chipShape: pick(a.chipShape, CHIP_SHAPES, d.chipShape),
     chipSize: pick(a.chipSize, CHIP_SIZES, d.chipSize),
     chipFullWidth: a.chipFullWidth === true,
+    pillSlider: a.pillSlider !== false,
+    pillSliderAfter: intIn(a.pillSliderAfter, 2, 50, d.pillSliderAfter),
     showSummary: a.showSummary !== false,
     headingFont: pick(a.headingFont, HEADING_FONTS, d.headingFont),
     accent: colour(a.accent, d.accent),
@@ -260,10 +272,18 @@ export function appearanceBundle(appearance) {
   for (const s of STEPS) controls[s.key] = a.stepStyles[s.key] || a.controlStyle;
   return {
     controls,
+    pills: { slider: a.pillSlider, after: a.pillSliderAfter },
     vars: appearanceVars(a),
     rootClasses: appearanceRootClasses(a),
     css: scopeCustomCss(a.customCss),
   };
+}
+
+// Does this step's pill row become a horizontal slider? Shared so the preview
+// and the storefront answer the question identically.
+export function pillsSlide(appearance, count) {
+  const a = normalizeAppearance(appearance);
+  return a.pillSlider && count > a.pillSliderAfter;
 }
 
 export function scopeCustomCss(css, scope = ".crc-ds") {

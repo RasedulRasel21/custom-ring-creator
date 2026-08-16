@@ -6,7 +6,12 @@
 // what a shopper will see. The CSS itself is not duplicated — the preview
 // imports the real diamond-selector.css.
 
-import { controlStyleFor, appearanceRootClasses, normalizeAppearance } from "./appearance";
+import {
+  controlStyleFor,
+  appearanceRootClasses,
+  normalizeAppearance,
+  pillsSlide,
+} from "./appearance";
 
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, (c) => ({
@@ -52,8 +57,18 @@ function control(appearance, step, values, selected) {
         )}</button>`,
     )
     .join("");
+
+  // Long rows scroll on one line instead of wrapping. The arrows are inert here
+  // (the preview is static), but they show the merchant the row will slide.
+  const slide = pillsSlide(appearance, values.length);
+  const arrows = slide
+    ? `<button type="button" class="crc-ds__arrow crc-ds__arrow--prev" disabled>&#8249;</button>
+       <button type="button" class="crc-ds__arrow crc-ds__arrow--next">&#8250;</button>`
+    : "";
+
   return `<div class="crc-ds__control" data-ds-control="${step}">
-    <div class="crc-ds__chips" data-ds-chips>${chips}</div>
+    <div class="crc-ds__chips${slide ? " is-slider" : ""}" data-ds-chips>${chips}</div>
+    ${arrows}
   </div>`;
 }
 
