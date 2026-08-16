@@ -101,6 +101,27 @@
 .ds-admin .mini.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .ds-admin .mini.readonly{cursor:default;opacity:.9}
 
+/* ring size editor */
+.ds-admin .sz-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ds-admin .sz{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:20px;
+  background:#fff;overflow:hidden;font-size:11.5px}
+.ds-admin .sz-name{font:inherit;border:none;background:none;padding:5px 4px 5px 12px;color:var(--ink);
+  cursor:text;min-width:26px;text-align:center}
+.ds-admin .sz-name:hover{color:var(--gold-dark)}
+.ds-admin .sz-edit{font:inherit;font-size:11.5px;border:none;outline:none;width:58px;padding:5px 6px 5px 10px;background:#fff}
+.ds-admin .sz-mv,.ds-admin .sz-x{font:inherit;border:none;background:none;cursor:pointer;color:var(--mist);
+  padding:5px 4px;line-height:1}
+.ds-admin .sz-mv:hover:not(:disabled),.ds-admin .sz-x:hover{color:var(--ink)}
+.ds-admin .sz-mv:disabled{opacity:.25;cursor:default}
+.ds-admin .sz-x{padding-right:10px;font-size:14px}
+.ds-admin .sz-x:hover{color:var(--warn)}
+.ds-admin .sz-add{display:flex;gap:8px;align-items:center;margin-top:12px;max-width:420px}
+.ds-admin .sz-add .ds-field{margin-top:0}
+.ds-admin .sz-add .btn{padding:9px 18px;white-space:nowrap}
+.ds-admin .sz-presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px}
+.ds-admin .sz-presets .mini{cursor:pointer}
+.ds-admin .sz-presets .mini:hover{border-color:var(--gold);color:var(--gold-dark)}
+
 /* buttons / savebar */
 .ds-admin .savebar{display:flex;gap:12px;align-items:center;margin-top:6px}
 .ds-admin .btn{font-family:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;

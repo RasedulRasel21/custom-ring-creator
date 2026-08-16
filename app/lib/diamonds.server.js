@@ -11,6 +11,9 @@ import {
   comboKey,
   LINE_ITEM_FIELDS,
   DEFAULT_LINE_ITEM_FIELDS,
+  RING_SIZE_PRESETS,
+  MAX_RING_SIZES,
+  normalizeRingSizes,
 } from "./money";
 import { normalizeAppearance, appearanceBundle } from "./appearance";
 
@@ -27,6 +30,9 @@ export {
   comboKey,
   LINE_ITEM_FIELDS,
   DEFAULT_LINE_ITEM_FIELDS,
+  RING_SIZE_PRESETS,
+  MAX_RING_SIZES,
+  normalizeRingSizes,
 };
 
 // ---------------------------------------------------------------------------
@@ -81,9 +87,10 @@ export async function getOptions(shop, shape = "emerald", productGid = null) {
   // Appearance rides along on this call rather than a second request: the block
   // keeps its loading overlay up until this resolves, so the styles land before
   // anything is painted and there is no flash of the default theme.
-  const appearance = appearanceBundle(await getAppearance(shop));
+  const [appearanceRaw, sizes] = await Promise.all([getAppearance(shop), getRingSizes(shop)]);
+  const appearance = appearanceBundle(appearanceRaw);
 
-  return { shape, enabled, appearance, sizes: ringSizes(), combos: byOrigin, images };
+  return { shape, enabled, appearance, sizes, combos: byOrigin, images };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +165,19 @@ export async function getShopSettings(shop) {
   return {
     lineItemFields: Array.isArray(s.lineItemFields) ? s.lineItemFields : DEFAULT_LINE_ITEM_FIELDS,
     appearance: normalizeAppearance(s.appearance),
+    ringSizes: normalizeRingSizes(s.ringSizes),
   };
+}
+
+// The shop's size list. Every size check must go through here — validating
+// against the hard-coded default would reject a merchant's own sizes.
+export async function getRingSizes(shop) {
+  const s = await readSettingsBlob(shop);
+  return normalizeRingSizes(s.ringSizes);
+}
+
+export async function saveRingSizes(shop, sizes) {
+  await saveShopSettings(shop, { ringSizes: normalizeRingSizes(sizes) });
 }
 
 // Merges the given keys into the stored blob. A plain upsert would drop every

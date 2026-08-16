@@ -1,5 +1,5 @@
 import { authenticate } from "../shopify.server";
-import { quote, mintProduct, ringSizes, formatGBP, getShopSettings } from "../lib/diamonds.server";
+import { quote, mintProduct, getRingSizes, formatGBP, getShopSettings } from "../lib/diamonds.server";
 
 // POST /apps/diamond/cart
 // Body (JSON): { productId, shape, origin, carat, colour, clarity, size }
@@ -25,9 +25,12 @@ export const action = async ({ request }) => {
     return Response.json({ ok: false, reason: "missing productId" }, { status: 400 });
   }
 
-  // Validate size against the server-side list (client can't invent one).
+  // Validate size against the shop's own list (client can't invent one). This
+  // must read the merchant's sizes, not the built-in default — otherwise a shop
+  // that switched to US sizing would fail every add to cart.
   const size = String(body.size || "");
-  if (!ringSizes().includes(size)) {
+  const allowedSizes = await getRingSizes(session.shop);
+  if (!allowedSizes.includes(size)) {
     return Response.json({ ok: false, reason: "invalid_size" }, { status: 400 });
   }
 

@@ -3,8 +3,8 @@ import { useFetcher, useLoaderData } from "react-router";
 import { SaveBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { getSupabase } from "../supabase.server";
-import { getAppearance, saveAppearance } from "../lib/diamonds.server";
-import { normCarat, normColour, normClarity, ringSizes } from "../lib/money";
+import { getAppearance, getRingSizes, saveAppearance } from "../lib/diamonds.server";
+import { normCarat, normColour, normClarity } from "../lib/money";
 import {
   APPEARANCE_DEFAULTS,
   CHIP_SHAPES,
@@ -42,6 +42,9 @@ export const loader = async ({ request }) => {
 
   const uniq = (xs) => [...new Set(xs.filter(Boolean))];
   const rows = data || [];
+  // Sizes come from the merchant's own list either way — they are configured in
+  // Selector settings, not derived from the price sheet.
+  const sizes = await getRingSizes(session.shop);
   const preview = rows.length
     ? {
         origins: uniq(rows.map((r) => String(r.origin || "").toLowerCase())).filter((o) =>
@@ -50,9 +53,9 @@ export const loader = async ({ request }) => {
         carats: uniq(rows.map((r) => normCarat(r.carat))).sort((a, b) => parseFloat(a) - parseFloat(b)),
         colours: uniq(rows.map((r) => normColour(r.colour))).sort(),
         clarities: uniq(rows.map((r) => normClarity(r.clarity))).sort(),
-        sizes: ringSizes(),
+        sizes,
       }
-    : SAMPLE_DATA;
+    : { ...SAMPLE_DATA, sizes };
 
   // storefrontCss is deliberately NOT returned here — it is inlined into the
   // route bundle by the ?raw import, so shipping it through the loader as well

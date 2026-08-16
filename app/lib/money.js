@@ -26,7 +26,12 @@ export function formatGBP(pence) {
 }
 
 // ---------------------------------------------------------------------------
-//  Ring sizes — UK H..Q with half sizes, ending at Q (no Q.5). No price impact.
+//  Ring sizes — merchant-managed per shop (Selector settings). No price impact.
+//
+//  This function is only the fallback for a shop that has never edited the list;
+//  the live list comes from getRingSizes() in diamonds.server.js. Anything that
+//  validates a size MUST use the shop's list, not this one, or a merchant who
+//  switches to US sizes gets "invalid_size" on every add to cart.
 // ---------------------------------------------------------------------------
 export function ringSizes() {
   const letters = "HIJKLMNOPQ".split("");
@@ -36,6 +41,52 @@ export function ringSizes() {
     if (i < letters.length - 1) out.push(l + ".5");
   });
   return out; // H, H.5, I, I.5 … P, P.5, Q
+}
+
+// Ready-made lists offered as one-click presets in the admin.
+export const RING_SIZE_PRESETS = [
+  { key: "uk", label: "UK (H–Q)", sizes: ringSizes() },
+  {
+    key: "us",
+    label: "US (3–13)",
+    sizes: Array.from({ length: 21 }, (_, i) => {
+      const n = 3 + i * 0.5;
+      return Number.isInteger(n) ? String(n) : n.toFixed(1);
+    }),
+  },
+  {
+    key: "eu",
+    label: "EU (44–70)",
+    sizes: Array.from({ length: 27 }, (_, i) => String(44 + i)),
+  },
+];
+
+export const MAX_RING_SIZES = 120;
+const MAX_SIZE_LABEL = 12;
+
+/**
+ * Clean a merchant-supplied size list. Order is preserved — it is the order
+ * shoppers see — so this de-duplicates rather than sorting. Falls back to the
+ * default list only when nothing usable survives, so a shop can never end up
+ * with an empty size control.
+ */
+export function normalizeRingSizes(input) {
+  const raw = Array.isArray(input)
+    ? input
+    : String(input || "").split(/[,\n]/);
+
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    const s = String(item ?? "").trim().slice(0, MAX_SIZE_LABEL);
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= MAX_RING_SIZES) break;
+  }
+  return out.length ? out : ringSizes();
 }
 
 // ---------------------------------------------------------------------------
