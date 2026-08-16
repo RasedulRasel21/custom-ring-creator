@@ -179,6 +179,7 @@ export async function getShopSettings(shop) {
     lineItemFields: Array.isArray(s.lineItemFields) ? s.lineItemFields : DEFAULT_LINE_ITEM_FIELDS,
     appearance: normalizeAppearance(s.appearance),
     ringSizes: normalizeRingSizes(s.ringSizes),
+    origins: normalizeOrigins(s.origins),
   };
 }
 
