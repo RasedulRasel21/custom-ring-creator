@@ -69,7 +69,20 @@
     // Overwritten by applyAppearance before any field is painted; these are the
     // fallbacks used if /options never answers.
     var pillCfg = { slider: true, after: 8 };
-    var combos = { natural: [], lab: [] }; // filled from server
+    var combos = {};      // { originKey: [{carat,colour,clarity}] }, from server
+    var originList = [];  // [{key,label}] for this shop, from server
+    // The block no longer knows what an origin is called; labels come from the
+    // merchant's settings via /options.
+    function originLabel(key) {
+      for (var i = 0; i < originList.length; i++) {
+        if (originList[i].key === key) return originList[i].label;
+      }
+      return key || '';
+    }
+    function originsWithPrices() {
+      return originList.filter(function (o) { return (combos[o.key] || []).length; })
+        .map(function (o) { return o.key; });
+    }
     var serverImages = {}; // carat -> url, from options (app mapping + CSV)
     var featuredImage = root.getAttribute("data-featured-image") || "";
     var media = []; // product images with alt text, for the alt-text fallback
@@ -493,9 +506,9 @@
       el.cta.textContent = "Add to cart";
       if (el.stone) el.stone.innerHTML = '<span class="crc-ds__pending">Calculating…</span>';
       if (el.facet) el.facet.textContent = state.carat + "ct · " + state.colour + " · " + state.clarity +
-        " · " + (state.origin === "natural" ? "Natural" : "Lab");
+        " · " + originLabel(state.origin);
       if (el.props) el.props.innerHTML = "<strong>Your specification</strong><br>" +
-        (state.origin === "natural" ? "Natural" : "Lab grown") + " " + shape + " cut · " +
+        originLabel(state.origin) + " " + shape + " cut · " +
         state.carat + " carat · colour " + state.colour + " · clarity " + state.clarity +
         "<br>Ring size " + (state.size || "—");
 
@@ -520,7 +533,7 @@
     function pickOrigin(origin) {
       if (!origin) return;
       state.origin = origin;
-      if (el.hintOrigin) el.hintOrigin.textContent = (origin === "natural" ? "Natural" : "Lab") + " selected";
+      if (el.hintOrigin) el.hintOrigin.textContent = originLabel(origin) + " selected";
       resetFromCarat();
       fields.carat.setItems(caratsFor(origin));
       unlock("carat");
@@ -559,7 +572,7 @@
 
     var fields = {
       origin: makeField("origin", {
-        label: function (o) { return o === "natural" ? "Natural" : "Lab Grown"; },
+        label: originLabel,
         onChange: pickOrigin,
       }),
       carat: makeField("carat", {
@@ -592,7 +605,7 @@
     }
     function unionCarats() {
       var seen = {};
-      ["natural", "lab"].forEach(function (o) {
+      Object.keys(combos).forEach(function (o) {
         (combos[o] || []).forEach(function (r) { if (r.carat) seen[r.carat] = 1; });
       });
       return Object.keys(seen).sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
@@ -602,7 +615,7 @@
     }
     function onCaratThumb(c) {
       // Carat needs an origin for pricing; auto-pick one if the shopper clicked a thumb first.
-      if (!state.origin) selectOrigin((combos.natural && combos.natural.length) ? "natural" : "lab");
+      if (!state.origin) selectOrigin(originsWithPrices()[0]);
       selectCarat(c);
     }
     function renderCaratThumbs(origin) {
@@ -847,7 +860,8 @@
         .then(function (data) {
           // Merchant toggled the selector off for this ring page.
           if (data.enabled === false) { root.style.display = "none"; return; }
-          combos = data.combos || { natural: [], lab: [] };
+          combos = data.combos || {};
+          originList = data.origins || [];
           serverImages = data.images || {};
 
           // Styles first: this runs while the loading overlay is still up, so
@@ -856,8 +870,9 @@
 
           console.log("[crc-ds] options loaded:", {
             enabled: data.enabled,
-            naturalRows: (combos.natural || []).length,
-            labRows: (combos.lab || []).length,
+            rowsByOrigin: originList.map(function (o) {
+              return o.key + "=" + (combos[o.key] || []).length;
+            }).join(" "),
             sizes: (data.sizes || []).length,
             controls: data.appearance && data.appearance.controls,
             raw: data,
@@ -869,10 +884,9 @@
           if (sizes.length) fields.size.set(sizes[0]);
           state.size = sizes[0] || null;
 
-          // origins — only show those that actually have prices loaded
-          var origins = [];
-          if ((combos.natural || []).length) origins.push("natural");
-          if ((combos.lab || []).length) origins.push("lab");
+          // origins — the merchant's own list, in their order, minus any that
+          // have no prices loaded for this shape.
+          var origins = originsWithPrices();
           if (!origins.length) { root.classList.remove("is-loading"); showMsg("No diamond prices are loaded yet.", "error"); return; }
           fields.origin.setItems(origins);
           renderThumbs(state.origin); // build thumbnails now that combos + images are loaded

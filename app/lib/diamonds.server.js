@@ -14,6 +14,10 @@ import {
   RING_SIZE_PRESETS,
   MAX_RING_SIZES,
   normalizeRingSizes,
+  DEFAULT_ORIGINS,
+  MAX_ORIGINS,
+  originKey,
+  normalizeOrigins,
 } from "./money";
 import { normalizeAppearance, appearanceBundle } from "./appearance";
 
@@ -33,6 +37,10 @@ export {
   RING_SIZE_PRESETS,
   MAX_RING_SIZES,
   normalizeRingSizes,
+  DEFAULT_ORIGINS,
+  MAX_ORIGINS,
+  originKey,
+  normalizeOrigins,
 };
 
 // ---------------------------------------------------------------------------
@@ -48,13 +56,16 @@ export async function getOptions(shop, shape = "emerald", productGid = null) {
     .eq("shape", shape);
   if (error) throw new Error(`Supabase options error: ${error.message}`);
 
-  // Shape into { natural: [{carat,colour,clarity}], lab: [...] }
-  // and collect any per-carat image supplied via the CSV image_url column.
-  const byOrigin = { natural: [], lab: [] };
+  // Shape into { <originKey>: [{carat,colour,clarity}], … } for the shop's own
+  // origins, and collect any per-carat image supplied via the CSV image_url
+  // column. Rows whose origin was deleted simply find no bucket and drop out.
+  const originList = await getOrigins(shop);
+  const byOrigin = {};
+  for (const o of originList) byOrigin[o.key] = [];
   const images = {}; // carat -> url
   for (const r of data || []) {
-    const o = normOrigin(r.origin);
-    if (!o) continue;
+    const o = normOrigin(r.origin, originList);
+    if (!o || !byOrigin[o]) continue;
     const carat = normCarat(r.carat);
     byOrigin[o].push({ carat, colour: normColour(r.colour), clarity: normClarity(r.clarity) });
     if (r.image_url && carat && !images[carat]) images[carat] = r.image_url;
@@ -90,7 +101,9 @@ export async function getOptions(shop, shape = "emerald", productGid = null) {
   const [appearanceRaw, sizes] = await Promise.all([getAppearance(shop), getRingSizes(shop)]);
   const appearance = appearanceBundle(appearanceRaw);
 
-  return { shape, enabled, appearance, sizes, combos: byOrigin, images };
+  // `origins` carries the labels so the block never has to know what an origin
+  // is called — it used to hardcode "Natural" / "Lab Grown".
+  return { shape, enabled, appearance, sizes, origins: originList, combos: byOrigin, images };
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +193,30 @@ export async function saveRingSizes(shop, sizes) {
   await saveShopSettings(shop, { ringSizes: normalizeRingSizes(sizes) });
 }
 
+// The shop's origin list. Anything resolving a CSV or form value to an origin
+// must pass this to normOrigin, or custom origins are rejected as invalid.
+export async function getOrigins(shop) {
+  const s = await readSettingsBlob(shop);
+  return normalizeOrigins(s.origins);
+}
+
+export async function saveOrigins(shop, origins) {
+  await saveShopSettings(shop, { origins: normalizeOrigins(origins) });
+}
+
+// How many price rows reference each origin — the admin warns with this before
+// deleting, since removing an origin hides its rows without deleting them.
+export async function getOriginRowCounts(shop) {
+  const supabase = getSupabase();
+  const { data } = await supabase.from("diamond_prices").select("origin").eq("shop", shop);
+  const counts = {};
+  for (const r of data || []) {
+    const k = originKey(r.origin);
+    if (k) counts[k] = (counts[k] || 0) + 1;
+  }
+  return counts;
+}
+
 // Merges the given keys into the stored blob. A plain upsert would drop every
 // key the caller didn't send — saving line-item fields would silently wipe the
 // appearance settings, and vice versa.
@@ -258,7 +295,7 @@ export async function getBasePricePence(shop, productGid, admin) {
 // ---------------------------------------------------------------------------
 export async function quote(shop, admin, sel) {
   const shape = sel.shape || "emerald";
-  const origin = normOrigin(sel.origin);
+  const origin = normOrigin(sel.origin, await getOrigins(shop));
   const carat = normCarat(sel.carat);
   const colour = normColour(sel.colour);
   const clarity = normClarity(sel.clarity);

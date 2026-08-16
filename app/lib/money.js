@@ -92,11 +92,73 @@ export function normalizeRingSizes(input) {
 // ---------------------------------------------------------------------------
 //  Normalisers — keep CSV / storefront input consistent with stored rows.
 // ---------------------------------------------------------------------------
-export function normOrigin(v) {
-  const s = String(v || "").trim().toLowerCase();
-  if (["natural", "nat", "n"].includes(s)) return "natural";
-  if (["lab", "lab grown", "lab-grown", "labgrown", "l"].includes(s)) return "lab";
-  return null;
+// ---------------------------------------------------------------------------
+//  Diamond origins — merchant-managed per shop (Selector settings).
+//
+//  `key` is what lands in diamond_prices.origin and is FROZEN once created:
+//  renaming it would orphan every price row that references it. Only `label`,
+//  the shopper-facing text, is editable.
+// ---------------------------------------------------------------------------
+export const DEFAULT_ORIGINS = [
+  { key: "natural", label: "Natural" },
+  { key: "lab", label: "Lab Grown" },
+];
+
+export const MAX_ORIGINS = 12;
+
+// Shorthands that older price sheets use. Only honoured when the origin they
+// point at still exists, so a deleted origin can't sneak back in via a CSV.
+const LEGACY_ALIASES = {
+  nat: "natural",
+  n: "natural",
+  "lab grown": "lab",
+  "lab-grown": "lab",
+  labgrown: "lab",
+  l: "lab",
+};
+
+export function originKey(text) {
+  return String(text ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 24);
+}
+
+export function normalizeOrigins(input) {
+  if (!Array.isArray(input)) return DEFAULT_ORIGINS.map((o) => ({ ...o }));
+  const seen = new Set();
+  const out = [];
+  for (const item of input) {
+    if (!item) continue;
+    const key = originKey(typeof item === "string" ? item : item.key ?? item.label);
+    if (!key || seen.has(key)) continue;
+    const label = String((typeof item === "string" ? item : item.label) ?? key).trim().slice(0, 40);
+    seen.add(key);
+    out.push({ key, label: label || key });
+    if (out.length >= MAX_ORIGINS) break;
+  }
+  return out.length ? out : DEFAULT_ORIGINS.map((o) => ({ ...o }));
+}
+
+/**
+ * Resolve a CSV / form value to one of the shop's origin keys, or null.
+ * Matches the key, the slugified label, the label itself, then legacy aliases.
+ */
+export function normOrigin(v, origins) {
+  const list = normalizeOrigins(origins);
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const slug = originKey(raw);
+
+  for (const o of list) {
+    if (o.key === lower || o.key === slug) return o.key;
+    if (o.label.toLowerCase() === lower) return o.key;
+  }
+  const alias = LEGACY_ALIASES[lower];
+  return alias && list.some((o) => o.key === alias) ? alias : null;
 }
 export function normCarat(v) {
   const n = parseFloat(String(v).replace(/[^\d.]/g, ""));

@@ -4,12 +4,15 @@ import { SaveBar } from "@shopify/app-bridge-react";
 import TokenEditor from "../components/TokenEditor";
 import { authenticate } from "../shopify.server";
 import { getSupabase } from "../supabase.server";
-import { getShopSettings, saveShopSettings } from "../lib/diamonds.server";
+import { getShopSettings, getOriginRowCounts, saveShopSettings } from "../lib/diamonds.server";
 import {
   LINE_ITEM_FIELDS,
+  MAX_ORIGINS,
   MAX_RING_SIZES,
   RING_SIZE_PRESETS,
+  normalizeOrigins,
   normalizeRingSizes,
+  originKey,
 } from "../lib/money";
 
 const ALL_SHAPES = ["emerald", "round", "oval", "princess", "cushion", "pear"];
@@ -25,7 +28,13 @@ export const loader = async ({ request }) => {
     .eq("shop", session.shop);
   const liveShapes = [...new Set((data || []).map((r) => r.shape))];
 
-  return { settings, liveShapes, presets: RING_SIZE_PRESETS };
+  return {
+    settings,
+    liveShapes,
+    presets: RING_SIZE_PRESETS,
+    // Used to warn before deleting an origin that price rows still reference.
+    originRows: await getOriginRowCounts(session.shop),
+  };
 };
 
 export const action = async ({ request }) => {
@@ -33,9 +42,11 @@ export const action = async ({ request }) => {
   const fd = await request.formData();
   let fields;
   let sizes;
+  let origins;
   try {
     fields = JSON.parse(fd.get("lineItemFields") || "[]");
     sizes = JSON.parse(fd.get("ringSizes") || "[]");
+    origins = JSON.parse(fd.get("origins") || "[]");
   } catch {
     return { ok: false, message: "Bad settings payload." };
   }
@@ -43,6 +54,7 @@ export const action = async ({ request }) => {
     await saveShopSettings(session.shop, {
       lineItemFields: fields,
       ringSizes: normalizeRingSizes(sizes),
+      origins: normalizeOrigins(origins),
     });
   } catch (err) {
     return { ok: false, message: `Save failed: ${err.message}` };
@@ -51,13 +63,14 @@ export const action = async ({ request }) => {
 };
 
 export default function Settings() {
-  const { settings, liveShapes, presets } = useLoaderData();
+  const { settings, liveShapes, presets, originRows } = useLoaderData();
   const fetcher = useFetcher();
   const busy = fetcher.state !== "idle";
   const res = fetcher.data;
 
   const [fields, setFields] = useState(new Set(settings.lineItemFields));
   const [sizes, setSizes] = useState(settings.ringSizes);
+  const [origins, setOrigins] = useState(settings.origins);
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => { if (res?.ok) setDirty(false); }, [res]);
@@ -114,15 +127,58 @@ export default function Settings() {
     if (p) commitSizes(p.sizes);
   }
 
+  // ---- origins ------------------------------------------------------------
+  function commitOrigins(next) {
+    setOrigins(next);
+    setDirty(true);
+  }
+  function addOrigin(text) {
+    const label = String(text).trim().slice(0, 40);
+    const key = originKey(label);
+    if (!key || origins.some((o) => o.key === key)) return;
+    if (origins.length >= MAX_ORIGINS) return;
+    commitOrigins([...origins, { key, label }]);
+  }
+  // Label only. The key is what diamond_prices.origin stores, so changing it
+  // would orphan every price row that references it.
+  function renameOrigin(key, label) {
+    commitOrigins(origins.map((o) => (o.key === key ? { ...o, label: label.slice(0, 40) } : o)));
+  }
+  function deleteOrigin(key) {
+    const o = origins.find((x) => x.key === key);
+    const rows = originRows[key] || 0;
+    const warning = rows
+      ? `Remove "${o?.label}"? ${rows} price row${rows === 1 ? "" : "s"} use it. ` +
+        `The rows are kept — they just stop appearing in the selector, and come back if you re-add this origin.`
+      : `Remove "${o?.label}"?`;
+    if (!window.confirm(warning)) return;
+    commitOrigins(origins.filter((x) => x.key !== key));
+  }
+  function reorderOrigin(key, targetKey) {
+    if (!targetKey || key === targetKey) return;
+    const from = origins.findIndex((o) => o.key === key);
+    const to = origins.findIndex((o) => o.key === targetKey);
+    if (from < 0 || to < 0) return;
+    const next = origins.filter((o) => o.key !== key);
+    const at = next.findIndex((o) => o.key === targetKey);
+    next.splice(from < to ? at + 1 : at, 0, origins[from]);
+    commitOrigins(next);
+  }
+
   function save() {
     fetcher.submit(
-      { lineItemFields: JSON.stringify([...fields]), ringSizes: JSON.stringify(sizes) },
+      {
+        lineItemFields: JSON.stringify([...fields]),
+        ringSizes: JSON.stringify(sizes),
+        origins: JSON.stringify(origins),
+      },
       { method: "post" },
     );
   }
   function discard() {
     setFields(new Set(settings.lineItemFields));
     setSizes(settings.ringSizes);
+    setOrigins(settings.origins);
     setDirty(false);
   }
 
@@ -157,8 +213,30 @@ export default function Settings() {
         <h3>Selection flow</h3>
         <p className="desc">The order is fixed: origin → carat → colour → clarity → ring size. Only valid combinations are ever shown, and the live total is ring base + selected stone.</p>
         <div className="cfg-row">
-          <div className="txt"><b>Diamond origin</b><p>Natural / Lab is the first choice, loading the correct price set.</p></div>
-          <div className="toggle on" style={{ pointerEvents: "none" }} />
+          <div className="txt" style={{ width: "100%" }}>
+            <b>Diamond origin</b>
+            <p>
+              The first choice a shopper makes; each one loads its own price set.
+              Click to rename, drag to reorder. An origin only appears on the storefront
+              once its price sheet has rows.
+            </p>
+
+            <TokenEditor
+              items={origins.map((o) => ({ id: o.key, label: o.label }))}
+              onAdd={addOrigin}
+              onRename={renameOrigin}
+              onDelete={deleteOrigin}
+              onReorder={reorderOrigin}
+              placeholder="Add an origin — e.g. Moissanite"
+            />
+
+            <p className="muted" style={{ marginTop: 8 }}>
+              {origins.length} of {MAX_ORIGINS}. Renaming changes only what shoppers see —
+              the value stored on your price rows (<code>{origins.map((o) => o.key).join(", ")}</code>)
+              never changes, so your CSVs keep working. Deleting hides an origin and its prices
+              from the selector but does not delete any price rows.
+            </p>
+          </div>
         </div>
         <div className="cfg-row">
           <div className="txt" style={{ width: "100%" }}>
