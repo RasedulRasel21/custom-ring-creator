@@ -153,6 +153,11 @@
 .ds-admin .sz-presets .mini:hover{border-color:var(--gold);color:var(--gold-dark)}
 
 /* ---- Welcome / setup home -------------------------------------------------- */
+/* Centre the whole column rather than letting it sit flush left in a wide admin
+   window. Same :has() approach as the Appearance page's wider column. The row
+   layout inside the header is untouched, so the action buttons stay top-right. */
+.ds-admin:has(.wl){margin-inline:auto}
+
 .wl-head{display:flex;align-items:flex-start;gap:20px;margin-bottom:22px;flex-wrap:wrap}
 .wl-head h2{font-family:var(--serif);font-size:26px;font-weight:500;margin:0}
 .wl-head p{font-size:13px;color:var(--mist);margin-top:6px;max-width:620px}
