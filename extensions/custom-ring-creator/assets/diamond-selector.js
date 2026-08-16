@@ -76,11 +76,6 @@
     } catch (e) { media = []; }
 
     var el = {
-      origin: q("[data-ds-origin]"),
-      carat: q("[data-ds-carat]"),
-      colour: q("[data-ds-colour]"),
-      clarity: q("[data-ds-clarity]"),
-      size: q("[data-ds-size]"),
       hintOrigin: q("[data-ds-hint-origin]"),
       base: q("[data-ds-base]"),
       stone: q("[data-ds-stone]"),
@@ -217,22 +212,108 @@
     }
     function clearMsg() { if (el.msg) el.msg.hidden = true; }
 
-    // ---- chip builder ---------------------------------------------------
-    function makeChips(container, values, labelFn, onPick) {
-      container.innerHTML = "";
-      values.forEach(function (v) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "crc-ds__chip";
-        b.textContent = labelFn ? labelFn(v) : v;
-        b.addEventListener("click", function () {
-          Array.prototype.forEach.call(container.querySelectorAll(".crc-ds__chip"), function (c) {
-            c.classList.remove("is-active");
+    // ---- fields: one control per step, pills or dropdown ------------------
+    // The markup ships both a chip list and a <select> for every step; the
+    // merchant's Appearance setting decides which one is populated and shown.
+    // Nothing below this line cares which it is.
+    function makeField(name, opts) {
+      opts = opts || {};
+      var wrap = q('[data-ds-control="' + name + '"]');
+      if (!wrap) return null;
+      var chips = wrap.querySelector("[data-ds-chips]");
+      var sel = wrap.querySelector("[data-ds-select]");
+      var mode = "pills";
+      var items = [];
+      var value = null;
+
+      function label(v) { return opts.label ? opts.label(v) : v; }
+
+      function paint() {
+        var dropdown = mode === "dropdown";
+        chips.hidden = dropdown;
+        sel.hidden = !dropdown;
+        if (dropdown) {
+          sel.innerHTML = "";
+          if (opts.placeholder) {
+            var ph = document.createElement("option");
+            ph.value = "";
+            ph.textContent = opts.placeholder;
+            sel.appendChild(ph);
+          }
+          items.forEach(function (v) {
+            var o = document.createElement("option");
+            o.value = v;
+            o.textContent = label(v);
+            sel.appendChild(o);
           });
-          b.classList.add("is-active");
-          onPick(v);
+          sel.value = value == null ? "" : value;
+        } else {
+          chips.innerHTML = "";
+          items.forEach(function (v) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "crc-ds__chip" + (v === value ? " is-active" : "");
+            b.setAttribute("data-value", v);
+            b.textContent = label(v);
+            b.addEventListener("click", function () { set(v, true); });
+            chips.appendChild(b);
+          });
+        }
+      }
+
+      // `fire` is false for programmatic sets so restoring state can't loop
+      // back into the cascade that triggered it.
+      function set(v, fire) {
+        value = v === "" || v == null ? null : v;
+        if (mode === "dropdown") {
+          sel.value = value == null ? "" : value;
+        } else {
+          Array.prototype.forEach.call(chips.querySelectorAll(".crc-ds__chip"), function (c) {
+            c.classList.toggle("is-active", c.getAttribute("data-value") === value);
+          });
+        }
+        if (fire && opts.onChange) opts.onChange(value);
+      }
+
+      sel.addEventListener("change", function () { set(this.value, true); });
+
+      return {
+        setMode: function (m) { mode = m === "dropdown" ? "dropdown" : "pills"; paint(); },
+        setItems: function (list) {
+          items = list || [];
+          if (items.indexOf(value) === -1) value = null;
+          paint();
+        },
+        set: set,
+        get: function () { return value; },
+        clear: function () { items = []; value = null; paint(); },
+      };
+    }
+
+    // ---- appearance -------------------------------------------------------
+    // Everything here is resolved server-side (app/lib/appearance.js) and
+    // applied verbatim — no style decisions are made in the browser.
+    function applyAppearance(bundle) {
+      if (!bundle) return;
+      if (bundle.vars) {
+        Object.keys(bundle.vars).forEach(function (k) {
+          root.style.setProperty(k, bundle.vars[k]);
         });
-        container.appendChild(b);
+      }
+      if (bundle.rootClasses) {
+        bundle.rootClasses.split(/\s+/).forEach(function (c) {
+          if (c) root.classList.add(c);
+        });
+      }
+      if (bundle.css) {
+        var style = document.createElement("style");
+        style.setAttribute("data-crc-ds-custom", "");
+        style.textContent = bundle.css;
+        root.appendChild(style);
+      }
+      var controls = bundle.controls || {};
+      Object.keys(fields).forEach(function (k) {
+        if (fields[k]) fields[k].setMode(controls[k] || "pills");
       });
     }
 
@@ -262,7 +343,8 @@
     // ---- resets ---------------------------------------------------------
     function resetFromCarat() {
       state.carat = null; state.colour = null; state.clarity = null;
-      el.carat.value = ""; el.colour.innerHTML = ""; el.clarity.innerHTML = "";
+      fields.carat.set(null);
+      fields.colour.clear(); fields.clarity.clear();
       lock("colour"); lock("clarity");
     }
 
@@ -314,40 +396,69 @@
 
     // ---- step wiring ----------------------------------------------------
     function pickOrigin(origin) {
+      if (!origin) return;
       state.origin = origin;
       if (el.hintOrigin) el.hintOrigin.textContent = (origin === "natural" ? "Natural" : "Lab") + " selected";
       resetFromCarat();
-      var cs = caratsFor(origin);
-      el.carat.innerHTML = '<option value="">Select carat weight</option>';
-      cs.forEach(function (c) {
-        var o = document.createElement("option");
-        o.value = c; o.textContent = parseFloat(c).toFixed(2) + " ct";
-        el.carat.appendChild(o);
-      });
+      fields.carat.setItems(caratsFor(origin));
       unlock("carat");
       setImage(resolveImage(null)); // reset to featured until a carat is chosen
       renderThumbs(origin);
       refreshPrice();
     }
 
+    function pickColour(colour) {
+      state.colour = colour;
+      state.clarity = null;
+      fields.clarity.clear();
+      if (!colour) { lock("clarity"); refreshPrice(); return; }
+      fields.clarity.setItems(claritiesFor(state.origin, state.carat, colour));
+      unlock("clarity");
+      refreshPrice();
+    }
+
+    function pickClarity(clarity) {
+      state.clarity = clarity;
+      if (clarity) unlock("size");
+      refreshPrice();
+    }
+
     function selectCarat(caratVal) {
-      el.carat.value = caratVal || "";
+      fields.carat.set(caratVal || null);
       state.carat = caratVal || null;
       state.colour = null; state.clarity = null;
-      el.clarity.innerHTML = ""; lock("clarity");
+      fields.clarity.clear(); lock("clarity");
       setImage(resolveImage(state.carat)); // swap ring photo by carat (syncs active thumb)
-      if (!state.carat) { lock("colour"); refreshPrice(); return; }
-      makeChips(el.colour, coloursFor(state.origin, state.carat), null, function (v) {
-        state.colour = v; state.clarity = null; el.clarity.innerHTML = "";
-        makeChips(el.clarity, claritiesFor(state.origin, state.carat, state.colour), null, function (cl) {
-          state.clarity = cl; unlock("size"); refreshPrice();
-        });
-        unlock("clarity"); refreshPrice();
-      });
+      if (!state.carat) { fields.colour.clear(); lock("colour"); refreshPrice(); return; }
+      fields.colour.setItems(coloursFor(state.origin, state.carat));
       unlock("colour");
       refreshPrice();
     }
-    el.carat.addEventListener("change", function () { selectCarat(this.value); });
+
+    var fields = {
+      origin: makeField("origin", {
+        label: function (o) { return o === "natural" ? "Natural" : "Lab Grown"; },
+        onChange: pickOrigin,
+      }),
+      carat: makeField("carat", {
+        label: function (c) { return parseFloat(c).toFixed(2) + " ct"; },
+        placeholder: "Select carat weight",
+        onChange: selectCarat,
+      }),
+      colour: makeField("colour", { onChange: pickColour }),
+      clarity: makeField("clarity", { onChange: pickClarity }),
+      size: makeField("size", {
+        label: function (s) { return "Size " + s; },
+        onChange: function (s) { state.size = s; refreshPrice(); },
+      }),
+    };
+
+    // Both controls ship hidden so neither can flash before the merchant's
+    // choice arrives. Reveal pills now as the floor, so a failed /options call
+    // leaves a usable-looking block rather than five empty rows.
+    Object.keys(fields).forEach(function (k) {
+      if (fields[k]) fields[k].setMode("pills");
+    });
 
     // Thumbnails — mode chosen in block settings: per-carat images, or the
     // product's own gallery images (like a native product image switcher).
@@ -363,10 +474,7 @@
       return Object.keys(seen).sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
     }
     function selectOrigin(o) {
-      var label = o === "natural" ? "Natural" : "Lab Grown";
-      Array.prototype.forEach.call(el.origin.querySelectorAll(".crc-ds__chip"), function (ch) {
-        if (ch.textContent === label) ch.click();
-      });
+      fields.origin.set(o, true);
     }
     function onCaratThumb(c) {
       // Carat needs an origin for pricing; auto-pick one if the shopper clicked a thumb first.
@@ -422,8 +530,6 @@
         t.classList.toggle("is-active", active);
       });
     }
-
-    el.size.addEventListener("change", function () { state.size = this.value; refreshPrice(); });
 
     // ---- open the theme's own cart UI (drawer / notification) -----------
     function sectionInner(html, sel) {
@@ -619,29 +725,32 @@
           if (data.enabled === false) { root.style.display = "none"; return; }
           combos = data.combos || { natural: [], lab: [] };
           serverImages = data.images || {};
+
+          // Styles first: this runs while the loading overlay is still up, so
+          // the shopper never sees the default theme repaint into the custom one.
+          applyAppearance(data.appearance);
+
           console.log("[crc-ds] options loaded:", {
             enabled: data.enabled,
             naturalRows: (combos.natural || []).length,
             labRows: (combos.lab || []).length,
             sizes: (data.sizes || []).length,
+            controls: data.appearance && data.appearance.controls,
             raw: data,
           });
 
-          // ring sizes
-          el.size.innerHTML = "";
-          (data.sizes || []).forEach(function (s) {
-            var o = document.createElement("option");
-            o.value = s; o.textContent = "Size " + s;
-            el.size.appendChild(o);
-          });
-          state.size = (data.sizes && data.sizes[0]) || null;
+          // ring sizes — preselected, since size carries no price impact
+          var sizes = data.sizes || [];
+          fields.size.setItems(sizes);
+          if (sizes.length) fields.size.set(sizes[0]);
+          state.size = sizes[0] || null;
 
           // origins — only show those that actually have prices loaded
           var origins = [];
           if ((combos.natural || []).length) origins.push("natural");
           if ((combos.lab || []).length) origins.push("lab");
           if (!origins.length) { root.classList.remove("is-loading"); showMsg("No diamond prices are loaded yet.", "error"); return; }
-          makeChips(el.origin, origins, function (o) { return o === "natural" ? "Natural" : "Lab Grown"; }, pickOrigin);
+          fields.origin.setItems(origins);
           renderThumbs(state.origin); // build thumbnails now that combos + images are loaded
           root.classList.remove("is-loading"); // reveal the ready selector
         })

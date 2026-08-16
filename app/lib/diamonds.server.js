@@ -12,6 +12,7 @@ import {
   LINE_ITEM_FIELDS,
   DEFAULT_LINE_ITEM_FIELDS,
 } from "./money";
+import { normalizeAppearance, appearanceBundle } from "./appearance";
 
 // Re-export the pure helpers so existing server-side imports keep working.
 export {
@@ -77,7 +78,12 @@ export async function getOptions(shop, shape = "emerald", productGid = null) {
     if (rp && rp.enabled === false) enabled = false;
   }
 
-  return { shape, enabled, sizes: ringSizes(), combos: byOrigin, images };
+  // Appearance rides along on this call rather than a second request: the block
+  // keeps its loading overlay up until this resolves, so the styles land before
+  // anything is painted and there is no flash of the default theme.
+  const appearance = appearanceBundle(await getAppearance(shop));
+
+  return { shape, enabled, appearance, sizes: ringSizes(), combos: byOrigin, images };
 }
 
 // ---------------------------------------------------------------------------
@@ -134,27 +140,47 @@ export async function getCaratsForShape(shop, shape) {
 }
 
 // ---------------------------------------------------------------------------
-//  Shop settings — which spec fields get written to the order line items.
+//  Shop settings — one jsonb blob per shop holding every app-level preference:
+//  which spec fields reach the order line items, plus the selector's appearance.
 // ---------------------------------------------------------------------------
-export async function getShopSettings(shop) {
+async function readSettingsBlob(shop) {
   const supabase = getSupabase();
   const { data } = await supabase
     .from("shop_settings")
     .select("settings")
     .eq("shop", shop)
     .maybeSingle();
-  const s = data?.settings || {};
+  return data?.settings && typeof data.settings === "object" ? data.settings : {};
+}
+
+export async function getShopSettings(shop) {
+  const s = await readSettingsBlob(shop);
   return {
     lineItemFields: Array.isArray(s.lineItemFields) ? s.lineItemFields : DEFAULT_LINE_ITEM_FIELDS,
+    appearance: normalizeAppearance(s.appearance),
   };
 }
 
-export async function saveShopSettings(shop, settings) {
+// Merges the given keys into the stored blob. A plain upsert would drop every
+// key the caller didn't send — saving line-item fields would silently wipe the
+// appearance settings, and vice versa.
+export async function saveShopSettings(shop, patch) {
   const supabase = getSupabase();
+  const current = await readSettingsBlob(shop);
+  const settings = { ...current, ...patch };
   const { error } = await supabase
     .from("shop_settings")
     .upsert({ shop, settings, updated_at: new Date().toISOString() }, { onConflict: "shop" });
   if (error) throw new Error(error.message);
+}
+
+export async function getAppearance(shop) {
+  const s = await readSettingsBlob(shop);
+  return normalizeAppearance(s.appearance);
+}
+
+export async function saveAppearance(shop, appearance) {
+  await saveShopSettings(shop, { appearance: normalizeAppearance(appearance) });
 }
 
 // ---------------------------------------------------------------------------

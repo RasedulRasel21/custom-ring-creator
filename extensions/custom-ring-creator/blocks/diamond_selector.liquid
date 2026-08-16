@@ -25,28 +25,46 @@
     <div class="crc-ds__loader" data-ds-loader aria-hidden="true"><span class="crc-ds__spinner"></span></div>
 
     <div class="crc-ds__selector">
+      {%- comment -%}
+        Every step ships BOTH controls; the app's Appearance settings decide which
+        one is shown (see applyAppearance in diamond-selector.js). They stay hidden
+        until then, which the loading overlay covers, so neither ever flashes.
+      {%- endcomment -%}
+
       <div class="crc-ds__step" data-ds-step="origin">
         <div class="crc-ds__step-label"><span class="crc-ds__name">Diamond</span>
           <span class="crc-ds__hint" data-ds-hint-origin>Choose an origin</span></div>
-        <div class="crc-ds__chips" data-ds-origin></div>
+        <div class="crc-ds__control" data-ds-control="origin">
+          <div class="crc-ds__chips" data-ds-chips hidden></div>
+          <select class="crc-ds__select" data-ds-select hidden></select>
+        </div>
       </div>
 
       <div class="crc-ds__step is-locked" data-ds-step="carat">
         <div class="crc-ds__step-label"><span class="crc-ds__name">Carat</span>
           <span class="crc-ds__hint">Weight</span></div>
-        <select class="crc-ds__select" data-ds-carat><option value="">Select carat weight</option></select>
+        <div class="crc-ds__control" data-ds-control="carat">
+          <div class="crc-ds__chips" data-ds-chips hidden></div>
+          <select class="crc-ds__select" data-ds-select hidden></select>
+        </div>
       </div>
 
       <div class="crc-ds__step is-locked" data-ds-step="colour">
         <div class="crc-ds__step-label"><span class="crc-ds__name">Colour</span>
           <span class="crc-ds__hint">D is finest</span></div>
-        <div class="crc-ds__chips" data-ds-colour></div>
+        <div class="crc-ds__control" data-ds-control="colour">
+          <div class="crc-ds__chips" data-ds-chips hidden></div>
+          <select class="crc-ds__select" data-ds-select hidden></select>
+        </div>
       </div>
 
       <div class="crc-ds__step is-locked" data-ds-step="clarity">
         <div class="crc-ds__step-label"><span class="crc-ds__name">Clarity</span>
           <span class="crc-ds__hint">VVS1 is finest</span></div>
-        <div class="crc-ds__chips" data-ds-clarity></div>
+        <div class="crc-ds__control" data-ds-control="clarity">
+          <div class="crc-ds__chips" data-ds-chips hidden></div>
+          <select class="crc-ds__select" data-ds-select hidden></select>
+        </div>
       </div>
 
       <div class="crc-ds__step is-locked" data-ds-step="size">
@@ -60,7 +78,10 @@
             {%- endif -%}
           {%- endif -%}
         </div>
-        <select class="crc-ds__select" data-ds-size></select>
+        <div class="crc-ds__control" data-ds-control="size">
+          <div class="crc-ds__chips" data-ds-chips hidden></div>
+          <select class="crc-ds__select" data-ds-select hidden></select>
+        </div>
       </div>
 
       <div class="crc-ds__summary">
@@ -93,6 +114,7 @@
   "name": "Diamond Selector",
   "target": "section",
   "settings": [
+    { "type": "paragraph", "content": "Colours, layout, pills vs dropdowns and custom CSS are set once for the whole store in the app: Apps → custom ring creator → Appearance." },
     { "type": "text", "id": "shape", "label": "Diamond shape (matches your CSV)", "default": "emerald" },
     { "type": "text", "id": "base_label", "label": "Base price row label (blank = product title)", "default": "Ring Price" },
     { "type": "text", "id": "cta_text", "label": "Button text", "default": "Add to cart" },

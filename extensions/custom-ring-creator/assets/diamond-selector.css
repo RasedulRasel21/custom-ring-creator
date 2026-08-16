@@ -10,12 +10,28 @@
   --ds-mist: #8a8a80;
   --ds-line: #e4e0d8;
   --ds-card: #ffffff;
-  --ds-gold: #9a7b4f;
-  --ds-gold-soft: #f3ede2;
+  --ds-gold: #22c55e;
+  --ds-gold-soft: #ecfdf3;
   --ds-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 30px rgba(26, 26, 26, 0.06);
   --ds-serif: Georgia, "Times New Roman", serif;
   --ds-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  /* Merchant-controlled — the app overwrites these inline from the Appearance
+     page (see appearanceVars in app/lib/appearance.js). The values here are the
+     defaults a store gets before anything is customised. */
+  --ds-chip-radius: 999px;
+  --ds-chip-pad: 9px 16px;
+  --ds-chip-font: 13px;
+  --ds-chip-minw: auto;
+  --ds-chip-active-bg: var(--ds-ink);
+  --ds-chip-active-fg: #ffffff;
+  --ds-summary-bg: var(--ds-gold-soft);
+  --ds-cta-bg: var(--ds-ink);
+  --ds-cta-fg: #ffffff;
+  --ds-cta-hover-bg: var(--ds-gold);
+  --ds-heading-font: var(--ds-sans);
+
   font-family: var(--ds-sans);
   color: var(--ds-ink);
   line-height: 1.5;
@@ -187,7 +203,7 @@
   min-width: 0;
 }
 .crc-ds__title {
-  font-family: var(--ds-serif);
+  font-family: var(--ds-heading-font);
   font-weight: 500;
   font-size: 38px;
   line-height: 1.05;
@@ -309,15 +325,15 @@
 }
 .crc-ds__chip {
   font-family: var(--ds-sans);
-  font-size: 13px;
-  padding: 9px 16px;
+  font-size: var(--ds-chip-font);
+  padding: var(--ds-chip-pad);
   border: 1px solid var(--ds-line);
   background: #fff;
   color: var(--ds-ink);
   cursor: pointer;
-  border-radius: 1px;
+  border-radius: var(--ds-chip-radius);
   transition: all 0.18s ease;
-  min-width: 96px;
+  min-width: var(--ds-chip-minw);
   text-align: center;
 }
 .crc-ds__chip:hover {
@@ -325,9 +341,14 @@
   color: var(--ds-gold);
 }
 .crc-ds__chip.is-active {
-  background: var(--ds-ink);
-  border-color: var(--ds-ink);
-  color: #fff;
+  background: var(--ds-chip-active-bg);
+  border-color: var(--ds-chip-active-bg);
+  color: var(--ds-chip-active-fg);
+}
+/* Keep the active chip readable on hover — without this the hover rule above
+   repaints the text in the accent colour on top of the active background. */
+.crc-ds__chip.is-active:hover {
+  color: var(--ds-chip-active-fg);
 }
 .crc-ds__select {
   width: 100%;
@@ -337,7 +358,7 @@
   border: 1px solid var(--ds-line);
   background: #fff;
   appearance: none;
-  border-radius: 1px;
+  border-radius: var(--ds-chip-radius);
   color: var(--ds-ink);
   cursor: pointer;
 }
@@ -345,10 +366,15 @@
   outline: none;
   border-color: var(--ds-gold);
 }
+/* A fully-round dropdown needs the text pulled off the curve — but only a
+   little, so the 999px pill radius can't push the label into the middle. */
+.crc-ds__select {
+  padding-left: clamp(14px, calc(var(--ds-chip-radius) / 2), 22px);
+}
 .crc-ds__summary {
   margin-top: auto;
-  background: var(--ds-gold-soft);
-  border: 1px solid #eae1d0;
+  background: var(--ds-summary-bg);
+  border: 1px solid var(--ds-line);
   padding: 22px 24px;
   border-radius: 2px;
 }
@@ -361,7 +387,7 @@
   padding: 5px 0;
 }
 .crc-ds__price-line.crc-ds__total {
-  border-top: 1px solid #e0d4bd;
+  border-top: 1px solid var(--ds-line);
   margin-top: 10px;
   padding-top: 14px;
 }
@@ -374,7 +400,7 @@
   font-variant-numeric: tabular-nums;
 }
 .crc-ds__total .crc-ds__v {
-  font-family: var(--ds-serif);
+  font-family: var(--ds-heading-font);
   font-size: 30px;
   font-weight: 600;
   color: var(--ds-ink);
@@ -394,15 +420,15 @@
   text-transform: uppercase;
   font-weight: 600;
   padding: 16px;
-  background: var(--ds-ink);
-  color: #fff;
+  background: var(--ds-cta-bg);
+  color: var(--ds-cta-fg);
   border: none;
   cursor: pointer;
   transition: background 0.2s;
-  border-radius: 1px;
+  border-radius: var(--ds-chip-radius);
 }
 .crc-ds__cta:hover:not(:disabled) {
-  background: var(--ds-gold);
+  background: var(--ds-cta-hover-bg);
 }
 .crc-ds__cta:disabled {
   background: #cfcac0;
@@ -472,4 +498,40 @@
   .crc-ds--compact .crc-ds__selector {
     padding: 0;
   }
+}
+
+/* ---- Appearance variants (set from the app's Appearance page) --------------
+   These are applied by applyAppearance() in diamond-selector.js and must come
+   after the --compact rules above: the block always carries `crc-ds--compact`,
+   so equal-specificity overrides only win by source order. */
+
+/* Card: give the block its own bordered panel back. */
+.crc-ds--layout-card .crc-ds__stage {
+  background: var(--ds-card);
+  border: 1px solid var(--ds-line);
+  box-shadow: var(--ds-shadow);
+  border-radius: 8px;
+}
+.crc-ds--layout-card .crc-ds__selector {
+  padding: 28px 26px;
+}
+@media (max-width: 820px) {
+  .crc-ds--layout-card .crc-ds__selector {
+    padding: 22px 18px;
+  }
+}
+
+/* Hide the price breakdown but keep the CTA, which lives inside this panel. */
+.crc-ds--no-summary .crc-ds__summary {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.crc-ds--no-summary .crc-ds__price-line {
+  display: none;
+}
+
+/* The dual-control wrapper: only the chosen control is ever un-hidden. */
+.crc-ds__control [hidden] {
+  display: none !important;
 }

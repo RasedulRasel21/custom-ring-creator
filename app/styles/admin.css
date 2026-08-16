@@ -3,14 +3,19 @@
    content inside each page to match the approved design. */
 .ds-admin{
   --ink:#171614; --graphite:#54514b; --mist:#8f8b82; --line:#e6e2d9;
-  --paper:#f7f5f0; --card:#ffffff; --gold:#9a7b4f; --gold-soft:#f4eee3;
-  --ok:#3f7d5a; --ok-soft:#eaf3ee; --warn:#b0603a; --warn-soft:#f9ece4;
+  --paper:#f7f5f0; --card:#ffffff;
+  /* Brand — AI Growth Kits green. `--gold` keeps its name because it is
+     referenced throughout this file as "the accent"; only the value is brand. */
+  --gold:#22c55e; --gold-soft:#ecfdf3; --gold-dark:#15803d;
+  --ok:#15803d; --ok-soft:#ecfdf3; --warn:#b0603a; --warn-soft:#f9ece4;
   --shadow:0 1px 2px rgba(0,0,0,.04),0 10px 34px rgba(23,22,20,.06);
   --serif:Georgia,'Times New Roman',serif;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
   color:var(--ink); line-height:1.5; -webkit-font-smoothing:antialiased;
   max-width:940px;
 }
+/* The Appearance page needs room for its side-by-side preview. */
+.ds-admin:has(.ap-wide){max-width:1320px}
 .ds-admin *{box-sizing:border-box}
 
 .ds-admin .page-head{margin-bottom:22px}
@@ -26,7 +31,7 @@
 /* dropzone */
 .ds-admin .drop{border:1.5px dashed #d8d2c5;border-radius:6px;padding:34px;text-align:center;
   background:var(--gold-soft);cursor:pointer;transition:.18s}
-.ds-admin .drop:hover{border-color:var(--gold);background:#f0e7d6}
+.ds-admin .drop:hover{border-color:var(--gold);background:#d7f5e3}
 .ds-admin .drop .ic{font-size:26px;color:var(--gold)}
 .ds-admin .drop b{display:block;font-size:14px;margin-top:8px;color:var(--ink);font-weight:600}
 .ds-admin .drop small{color:var(--mist);font-size:12px}
@@ -55,7 +60,7 @@
 .ds-admin tbody tr:hover{background:#faf8f3}
 .ds-admin .pill{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;letter-spacing:.04em}
 .ds-admin .pill.lab{background:#eef2f6;color:#496b82}
-.ds-admin .pill.natural{background:var(--gold-soft);color:var(--gold)}
+.ds-admin .pill.natural{background:var(--gold-soft);color:var(--gold-dark)}
 .ds-admin .tblfoot{padding:10px 14px;font-size:12px;color:var(--mist);background:#faf8f3;
   display:flex;justify-content:space-between;align-items:center}
 
@@ -80,7 +85,7 @@
   border-radius:50%;background:#fff;transition:.18s}
 .ds-admin .toggle.on::after{left:18px}
 
-.ds-admin .addbtn{margin-top:14px;font-size:12.5px;color:var(--gold);background:none;border:1px dashed #d8d2c5;
+.ds-admin .addbtn{margin-top:14px;font-size:12.5px;color:var(--gold-dark);background:none;border:1px dashed #d8d2c5;
   padding:9px 14px;border-radius:5px;cursor:pointer;width:100%;transition:.15s}
 .ds-admin .addbtn:hover{border-color:var(--gold);background:var(--gold-soft)}
 
@@ -100,10 +105,12 @@
 .ds-admin .savebar{display:flex;gap:12px;align-items:center;margin-top:6px}
 .ds-admin .btn{font-family:inherit;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
   font-weight:600;padding:13px 26px;background:var(--ink);color:#fff;border:none;border-radius:5px;cursor:pointer;transition:.18s}
-.ds-admin .btn:hover:not(:disabled){background:var(--gold)}
+/* Brand green is too light to carry white text — the darker tone keeps the
+   hover state readable (4.5:1) instead of the ~2:1 the base green gives. */
+.ds-admin .btn:hover:not(:disabled){background:var(--gold-dark)}
 .ds-admin .btn:disabled{background:#cfcac0;cursor:not-allowed}
 .ds-admin .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
-.ds-admin .btn.ghost:hover{border-color:var(--gold);color:var(--gold);background:#fff}
+.ds-admin .btn.ghost:hover{border-color:var(--gold);color:var(--gold-dark);background:#fff}
 .ds-admin .flash{font-size:12.5px;padding:10px 14px;border-radius:5px;margin-top:14px}
 .ds-admin .flash.ok{background:var(--ok-soft);color:var(--ok)}
 .ds-admin .flash.err{background:var(--warn-soft);color:var(--warn)}
@@ -140,7 +147,47 @@
 .ds-modal-grid figure:hover{border-color:var(--gold);box-shadow:0 4px 14px rgba(0,0,0,.08)}
 .ds-modal-grid img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
 .ds-modal-grid figcaption{font-size:10.5px;color:var(--mist);padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ---- Appearance page ------------------------------------------------------
+   Controls on the left, a sticky live preview on the right. The preview is an
+   iframe so merchant custom CSS is sealed off from the admin UI. */
+.ap-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:20px;align-items:start}
+.ap-controls{min-width:0}
+.ap-preview{position:sticky;top:12px;min-width:0}
+.ap-preview__card{margin-bottom:0}
+.ap-preview__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+.ap-preview__head h3{margin:0}
+.ap-preview__frame{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;
+  margin:0 auto;transition:width .2s ease;max-width:100%}
+.ap-preview__frame iframe{display:block;width:100%;height:620px;border:0;background:#fff}
+
+/* segmented control */
+.ap-seg{display:inline-flex;background:#f1f3f1;padding:3px;border-radius:8px;gap:2px;flex:none}
+.ap-seg__btn{border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--graphite);padding:6px 11px;border-radius:6px;cursor:pointer;transition:.15s;white-space:nowrap}
+.ap-seg__btn:hover{color:var(--ink)}
+.ap-seg__btn.is-active{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* colour pickers */
+.ap-colours{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.ap-colour{display:block}
+.ap-colour__row{display:flex;gap:8px;align-items:center;margin-top:4px}
+.ap-colour__row input[type=color]{inline-size:38px;block-size:34px;padding:0;border:1px solid var(--line);
+  border-radius:6px;background:#fff;cursor:pointer;flex:none}
+.ap-colour__row input[type=text]{padding-left:11px;font-family:var(--mono);font-size:12px;text-transform:lowercase}
+.ap-colour small{display:block;margin-top:4px}
+
+.ap-css{font-family:var(--mono);font-size:12px;line-height:1.6;resize:vertical;min-height:150px}
+.ds-admin code{font-family:var(--mono);font-size:11.5px;background:#f1f3f1;padding:1px 5px;border-radius:4px}
+
+@media(max-width:1080px){
+  .ap-grid{grid-template-columns:1fr}
+  .ap-preview{position:static}
+  .ap-preview__frame iframe{height:520px}
+}
+
 @media(max-width:760px){
   .ds-admin .metal-row{grid-template-columns:1fr 1fr;gap:8px}
   .ds-admin .grid2{grid-template-columns:1fr}
+  .ds-admin .cfg-row{flex-direction:column;align-items:stretch}
+  .ap-seg{align-self:flex-start}
 }

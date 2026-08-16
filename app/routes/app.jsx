@@ -21,6 +21,7 @@ export default function App() {
         <s-link href="/app">Price data</s-link>
         <s-link href="/app/rings">Ring base prices</s-link>
         <s-link href="/app/images">Ring images</s-link>
+        <s-link href="/app/appearance">Appearance</s-link>
         <s-link href="/app/settings">Selector settings</s-link>
       </s-app-nav>
       <div className="ds-admin">
